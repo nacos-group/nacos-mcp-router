@@ -1,3 +1,5 @@
+#-*- coding: utf-8 -*-
+
 import asyncio
 import logging
 import os
@@ -10,7 +12,7 @@ from chromadb.config import Settings
 from chromadb.api.types import OneOrMany, ID, Document, GetResult, QueryResult
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from mcp.client.stdio import get_default_environment, StdioServerParameters, stdio_client
+from mcp.client.stdio import StdioServerParameters, stdio_client
 from .logger import NacosMcpRouteLogger
 from .nacos_mcp_server_config import NacosMcpServerConfig
 
