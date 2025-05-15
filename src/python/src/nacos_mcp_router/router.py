@@ -31,18 +31,18 @@ def search_mcp_server(task_description: str, key_words: list[str]) -> str:
 
     Args:
         task_description (string): 用户任务描述，使用中文
-        key_words (list): 字符串数组，用户任务关键字，使用中文,可以为多个，最多为2个
+        key_words (string): 字符串数组，用户任务关键字，可以为多个，英文逗号分隔，最多为2个
   """
   try:
     router_logger.info(f"Searching tools for {task_description}, key words: {key_words}")
     mcp_servers1 = []
-    
-    for key_word in key_words:
+    keywords = key_words.split(",")
+    for key_word in keywords:
       mcps = mcp_updater.search_mcp_by_keyword(key_word)
       mcp_servers1.extend(mcps or [])
 
     if len(mcp_servers1) < 5:
-      key_words.append(task_description)
+      keywords.append(task_description)
       mcp_servers2 = mcp_updater.getMcpServer(task_description,5-len(mcp_servers1))
       mcp_servers1.extend(mcp_servers2 or [])
 
@@ -172,7 +172,8 @@ def main() -> int:
         content = await add_mcp_server(arguments["mcp_server_name"])
         return [types.TextContent(type="text", text=content)]
       case "use_tool":
-        content = await use_tool(arguments["mcp_server_name"],arguments["mcp_tool_name"], arguments["params"])
+        params = json.loads(arguments["params"])
+        content = await use_tool(arguments["mcp_server_name"],arguments["mcp_tool_name"], params)
         return [types.TextContent(type="text", text=content)]
       case _:
         return [types.TextContent(type="text", text="not implemented tool")]
@@ -193,8 +194,8 @@ def main() -> int:
               "description": "用户任务描述 ",
             },
             "key_words": {
-              "type": "list[string]",
-              "description": "用户任务关键字，可以为多个，最多为2个"
+              "type": "string",
+              "description": "用户任务关键字，可以为多个，英文逗号分隔，最多为2个"
             }
           },
         },
@@ -229,7 +230,7 @@ def main() -> int:
               "description": "需要使用的MCP Server工具名称"
             },
             "params": {
-              "type": "map",
+              "type": "string",
               "description": "需要使用的MCP Server工具的参数"
             }
           }

@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+src/typescript/node_modules
+.vscode/
+getting-started/
+my_hnsw_*.*
+.DS_Store

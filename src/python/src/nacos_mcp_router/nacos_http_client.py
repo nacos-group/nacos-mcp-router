@@ -14,7 +14,7 @@ logger = NacosMcpRouteLogger.get_logger()
 
 # Content types, used in request Nacos Server http headers, default is JSON.
 CONTENT_TYPE_JSON = "application/json; charset=utf8"
-CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded; chatset=utf8"
+CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded; charset=utf8"
 
 
 class NacosHttpClient:
@@ -78,6 +78,10 @@ class NacosHttpClient:
         total_count = data['totalCount']
 
         async def _to_mcp_server(m: dict) -> McpServer:
+            """
+            Fetch the mcp server unless the server is disabled(enabled=false)
+            or it's description field is None.
+            """
             if not m["enabled"]:
                 return None
 
