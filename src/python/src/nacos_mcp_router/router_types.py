@@ -154,7 +154,7 @@ class ChromaDb:
                 settings=Settings(
                     anonymized_telemetry=False,
                 ))
-    self._collectionId = "nacos_mcp_router-collection-" + str(os.getpid())
+    self._collectionId = "nacos_mcp_router-collection"
     self._collection = self.dbClient.get_or_create_collection(self._collectionId)
     self.preIds = []
 

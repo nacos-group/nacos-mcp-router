@@ -238,17 +238,93 @@ def main() -> int:
       )
     ]
 
-  from mcp.server.stdio import stdio_server
+  transport_type = os.getenv("TRANSPORT_TYPE", "stdio")
+  match transport_type:
+    case "stdio":
+      from mcp.server.stdio import stdio_server
 
-  async def arun():
-    async with stdio_server() as streams:
-      await app.run(
-        streams[0], streams[1], app.create_initialization_options()
+      async def arun():
+        async with stdio_server() as streams:
+          await app.run(
+            streams[0], streams[1], app.create_initialization_options()
+          )
+
+      anyio.run(arun)
+      
+      return 0
+    case "sse":
+      from mcp.server.sse import SseServerTransport
+      from starlette.applications import Starlette
+      from starlette.responses import Response
+      from starlette.routing import Mount, Route
+
+      sse_transport = SseServerTransport("/messages/")
+      sse_port = int(os.getenv("PORT", "8000"))
+      async def handle_sse(request):
+          async with sse_transport.connect_sse(
+              request.scope, request.receive, request._send
+          ) as streams:
+              await app.run(
+                  streams[0], streams[1], app.create_initialization_options()
+              )
+          return Response()
+
+      starlette_app = Starlette(
+          debug=True,
+          routes=[
+              Route("/sse", endpoint=handle_sse, methods=["GET"]),
+              Mount("/messages/", app=sse_transport.handle_post_message),
+          ],
       )
 
-  anyio.run(arun)
-  
-  return 0
+      import uvicorn
+
+      uvicorn.run(starlette_app, host="0.0.0.0", port=sse_port)
+      return 0
+    case "streamable_http":
+      streamable_port = int(os.getenv("PORT", "8000"))
+      from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+      from mcp.server.auth import json_response
+      session_manager = StreamableHTTPSessionManager(
+        app=app,
+        event_store=None,
+        json_response=False,
+        stateless=True,
+      )
+      from starlette.types import Scope
+      from starlette.types import Receive
+      from starlette.types import Send
+      import contextlib
+      from collections.abc import AsyncIterator
+      from starlette.routing import Mount
+
+      async def handle_streamable_http(
+        scope: Scope, receive: Receive, send: Send
+      ) -> None:
+        await session_manager.handle_request(scope, receive, send)
+
+      from starlette.applications import Starlette
+      @contextlib.asynccontextmanager
+      async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        """Context manager for session manager."""
+        async with session_manager.run(): 
+          try:
+            yield
+          finally:
+            router_logger.info("Application shutting down...")
+      starlette_app = Starlette(
+        debug=True,
+        routes=[
+            Mount("/mcp", app=handle_streamable_http),
+        ],
+        lifespan=lifespan,
+      )
+      import uvicorn
+      uvicorn.run(starlette_app, host="0.0.0.0", port=streamable_port)
+      return 0
+    case _:
+      router_logger.error("unknown transport type: " + transport_type)
+      return 1
 
 
 async def init() -> None:
