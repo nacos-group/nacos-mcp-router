@@ -18,7 +18,7 @@ from .router_types import CustomServer
 
 router_logger = NacosMcpRouteLogger.get_logger()
 mcp_servers_dict = {}
-mcp_updater, nacos_http_client  = None | McpUpdater, None | NacosHttpClient
+mcp_updater, nacos_http_client  =  McpUpdater | None,  NacosHttpClient | None
 
 
 def search_mcp_server(task_description: str, key_words: list[str]) -> str:
@@ -67,7 +67,7 @@ def search_mcp_server(task_description: str, key_words: list[str]) -> str:
   except Exception as e:
     msg = f"failed to search mcp server for {task_description}" 
     router_logger.warning(msg, exc_info=e)
-    return jsonString
+    return f"Error: {msg}"
 
 
 async def use_tool(mcp_server_name: str, mcp_tool_name: str, params:dict) -> str:
@@ -257,14 +257,8 @@ async def init() -> None:
   nacos_addr = os.getenv("NACOS_ADDR","127.0.0.1:8848")
   nacos_user_name = os.getenv("NACOS_USERNAME","nacos")
   nacos_password = os.getenv("NACOS_PASSWORD","")
-  nacos_http_client = NacosHttpClient(nacosAddr=nacos_addr
-                                        if nacos_addr != ""
-                                        else "127.0.0.1:8848",
-
-                                      userName=nacos_user_name
-                                        if nacos_user_name != ""
-                                        else "nacos",
-
+  nacos_http_client = NacosHttpClient(nacosAddr=nacos_addr or "127.0.0.1:8848",
+                                      userName=nacos_user_name or "nacos",
                                       passwd=nacos_password)
   chroma_db_service = ChromaDb()
 

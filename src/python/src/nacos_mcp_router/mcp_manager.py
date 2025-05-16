@@ -63,10 +63,10 @@ class McpUpdater:
 
       cache[sname] = mcpServer
       md5_str = get_md5(des)
-      version = self.mcp_server_config_version
+      version = self.mcp_server_config_version.get(sname, '')
 
-      if name not in version or version != md5_str:
-        version = md5_str
+      if version != md5_str:
+        self.mcp_server_config_version[sname] = md5_str
         ids.append(sname)
         docs.append(des)
 
@@ -103,8 +103,7 @@ class McpUpdater:
                    for id1  
                    in itertools.chain.from_iterable(ids)]
     
-    mcp_servers = itertools.filterfalse(lambda i: i is None, 
-                                        mcp_servers)
+    mcp_servers = [s for s in mcp_servers if s is not None]
 
     return list(mcp_servers)
 

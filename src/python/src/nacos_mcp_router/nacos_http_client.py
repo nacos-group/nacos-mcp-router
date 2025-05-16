@@ -3,6 +3,8 @@
 import json
 import urllib.parse
 import httpx
+import asyncio
+import os
 from mcp import Tool
 
 from .router_types import McpServer
@@ -16,6 +18,9 @@ logger = NacosMcpRouteLogger.get_logger()
 CONTENT_TYPE_JSON = "application/json; charset=utf8"
 CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded; charset=utf8"
 
+# HTTP schema, default is HTTP
+_SCHEMA_HTTP = "http"
+_SCHEMA = os.getenv("NACOS_SERVER_SCHEMA", _SCHEMA_HTTP)
 
 class NacosHttpClient:
     def __init__(self, nacosAddr: str, userName: str, passwd: str) -> None:
@@ -29,6 +34,7 @@ class NacosHttpClient:
         self.nacosAddr = nacosAddr
         self.userName = userName
         self.passwd = passwd
+        self.schema = _SCHEMA
 
     async def get_mcp_server_by_name(self, name: str) -> McpServer:
         """
@@ -89,8 +95,16 @@ class NacosHttpClient:
             s = await self.get_mcp_server_by_name(n)
             return s if s.description else None
 
-        mcp_servers = [await _to_mcp_server(m) for m in data['pageItems']]
-        mcp_servers = filter(lambda x: x is not None, mcp_servers)
+        tasks = [ _to_mcp_server(m) for m in data['pageItems']]
+        tasks = [t for t in tasks if t is not None]
+        if tasks:
+            # use asyncio.gather to run the tasks concurrently
+            # and wait for all of them to complete
+            # this is more efficient than using await for each task
+            # because it allows multiple tasks to run at the same time
+            # instead of waiting for each one to finish before starting the next
+            mcp_servers = await asyncio.gather(*tasks)
+            mcp_servers = [s for s in mcp_servers if s is not None]
 
         return total_count, list(mcp_servers)
 
@@ -192,7 +206,7 @@ class NacosHttpClient:
         """
 
         try:
-            url = f"http://{self.nacosAddr}{uri}"
+            url = f"{self.schema}://{self.nacosAddr}{uri}"
             headers = {"Content-Type": content_type,
                        "charset": "utf-8",
                        "userName": self.userName,
