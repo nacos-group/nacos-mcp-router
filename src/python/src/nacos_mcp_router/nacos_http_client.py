@@ -66,7 +66,7 @@ class NacosHttpClient:
 
         return mcp_server
 
-    async def get_mcp_servers_by_page(self, page_no: int, page_size: int) -> list[McpServer]:
+    async def get_mcp_servers_by_page(self, page_no: int, page_size: int):
         mcp_servers = list[McpServer]()
         uri = f"/nacos/v3/admin/ai/mcp/list?pageNo={page_no}&pageSize={page_size}"
         success, data = await self.request_nacos(uri)
@@ -77,7 +77,7 @@ class NacosHttpClient:
 
         total_count = data['totalCount']
 
-        async def _to_mcp_server(m: dict) -> McpServer:
+        async def _to_mcp_server(m: dict) -> McpServer | None:
             """
             Fetch the mcp server unless the server is disabled(enabled=false)
             or it's description field is None.
@@ -206,23 +206,23 @@ class NacosHttpClient:
                 elif method == "PUT":
                     response = await client.put(url, headers=headers, data=data)
                 elif method == "DELETE":
-                    response = await client.delete(url, headers=headers, data=data)
+                    response = await client.delete(url, headers=headers)
                 else:
                     raise ValueError("Invalid method")
         except Exception as e:
             logger.warning(f"failed to request with NACOS server, uri: {uri}, error: {e}")
-            return False, None
+            return False, {}
 
         code = response.status_code
         if code != 200:
             logger.warning(f"failed to request with NACOS server, uri: {uri}, code: {code}")
-            return False, None
+            return False, {}
 
         try:
             return True, json.loads(response.content.decode("utf-8")).get("data")
         except Exception as e:
             logger.warning(f"failed to parse response with NACOS server, uri: {uri}, error: {e}")
-            return False, None
+            return False, {}
 
 
 def _parse_tool_params(data, mcp_name, tools) -> dict[str, str]:

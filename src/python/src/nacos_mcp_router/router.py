@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+from typing import Optional
 
 import anyio
 from mcp import types
@@ -18,10 +19,11 @@ from .router_types import CustomServer
 
 router_logger = NacosMcpRouteLogger.get_logger()
 mcp_servers_dict = {}
-mcp_updater, nacos_http_client  = None | McpUpdater, None | NacosHttpClient
+mcp_updater: Optional[McpUpdater] = None
+nacos_http_client: Optional[NacosHttpClient] = None
 
 
-def search_mcp_server(task_description: str, key_words: list[str]) -> str:
+def search_mcp_server(task_description: str, key_words: str) -> str:
   """
     Name:
         search_mcp_server
@@ -34,6 +36,9 @@ def search_mcp_server(task_description: str, key_words: list[str]) -> str:
         key_words (string): 字符串数组，用户任务关键字，可以为多个，英文逗号分隔，最多为2个
   """
   try:
+    if mcp_updater is None:
+      return "服务初始化中，请稍后再试"
+      
     router_logger.info(f"Searching tools for {task_description}, key words: {key_words}")
     mcp_servers1 = []
     keywords = key_words.split(",")
@@ -43,7 +48,7 @@ def search_mcp_server(task_description: str, key_words: list[str]) -> str:
 
     if len(mcp_servers1) < 5:
       keywords.append(task_description)
-      mcp_servers2 = mcp_updater.getMcpServer(task_description,5-len(mcp_servers1))
+      mcp_servers2 = mcp_updater.getMcpServer(task_description, 5-len(mcp_servers1))
       mcp_servers1.extend(mcp_servers2 or [])
 
     result = {}
@@ -57,17 +62,16 @@ def search_mcp_server(task_description: str, key_words: list[str]) -> str:
     router_logger.info(f"Found {len(result)} server(s) totally")
     content = json.dumps(result, ensure_ascii=False)
 
-
-    jsonString = f'''## 获取{task_description }的步骤如下：
+    json_string = f'''## 获取{task_description}的步骤如下：
     ### 1. 当前可用的mcp server列表为：{content}
     ### 2. 从当前可用的mcp server列表中选择你需要的mcp server调add_mcp_server工具安装mcp server
     '''
 
-    return jsonString
+    return json_string
   except Exception as e:
     msg = f"failed to search mcp server for {task_description}" 
     router_logger.warning(msg, exc_info=e)
-    return jsonString
+    return f"发生错误: {str(e)}"
 
 
 async def use_tool(mcp_server_name: str, mcp_tool_name: str, params:dict) -> str:
@@ -95,6 +99,9 @@ async def add_mcp_server(mcp_server_name: str) -> str:
   :return: mcp server安装结果
   """
   try:
+    if nacos_http_client is None or mcp_updater is None:
+      return "服务初始化中，请稍后再试"
+      
     mcp_server = await nacos_http_client.get_mcp_server_by_name(mcp_server_name)
     if mcp_server is None or mcp_server.description == "":
       mcp_server = mcp_updater.get_mcp_server_by_name(mcp_server_name)
@@ -144,7 +151,8 @@ async def add_mcp_server(mcp_server_name: str) -> str:
       dct['inputSchema'] = tool.inputSchema
       tool_list.append(dct)
 
-    await nacos_http_client.update_mcp_tools(mcp_server_name,tools)
+    if nacos_http_client is not None:
+      await nacos_http_client.update_mcp_tools(mcp_server_name, tools)
 
     result = "1. " + mcp_server_name + "安装完成, tool 列表为: " + json.dumps(tool_list, ensure_ascii=False) +  "\n 2." + mcp_server_name + "的工具需要通过nacos-mcp-router的use_tool工具代理使用"
     return result
