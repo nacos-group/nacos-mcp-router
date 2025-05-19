@@ -1,9 +1,13 @@
 import unittest, os, asyncio
 import time
+from mcp import Tool
 from unittest.mock import AsyncMock
 
-class TestAsyncGeneratorsPerformance(unittest.TestCase):
 
+class TestAsyncGeneratorsPerformance(unittest.TestCase):
+    def setUp(self):
+        from nacos_mcp_router.nacos_http_client import NacosHttpClient
+        self.client = NacosHttpClient(nacosAddr="localhost:8848", userName="nacos", passwd="pass")
     async def asynchronize(self, item):
         await asyncio.sleep(0.1)  # Simulate async operation
         return item * 2

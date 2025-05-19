@@ -19,7 +19,9 @@ from .router_types import CustomServer
 
 router_logger = NacosMcpRouteLogger.get_logger()
 mcp_servers_dict = {}
-mcp_updater, nacos_http_client  =  McpUpdater | None,  NacosHttpClient | None
+
+mcp_updater: Optional[McpUpdater] = None
+nacos_http_client: Optional[NacosHttpClient] = None
 
 
 def search_mcp_server(task_description: str, key_words: str) -> str:
