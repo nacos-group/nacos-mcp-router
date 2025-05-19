@@ -19,8 +19,7 @@ from .router_types import CustomServer
 
 router_logger = NacosMcpRouteLogger.get_logger()
 mcp_servers_dict = {}
-mcp_updater: Optional[McpUpdater] = None
-nacos_http_client: Optional[NacosHttpClient] = None
+mcp_updater, nacos_http_client  =  McpUpdater | None,  NacosHttpClient | None
 
 
 def search_mcp_server(task_description: str, key_words: str) -> str:
@@ -38,7 +37,7 @@ def search_mcp_server(task_description: str, key_words: str) -> str:
   try:
     if mcp_updater is None:
       return "服务初始化中，请稍后再试"
-      
+
     router_logger.info(f"Searching tools for {task_description}, key words: {key_words}")
     mcp_servers1 = []
     keywords = key_words.split(",")
@@ -71,7 +70,7 @@ def search_mcp_server(task_description: str, key_words: str) -> str:
   except Exception as e:
     msg = f"failed to search mcp server for {task_description}" 
     router_logger.warning(msg, exc_info=e)
-    return f"发生错误: {str(e)}"
+    return f"Error: {msg}"
 
 
 async def use_tool(mcp_server_name: str, mcp_tool_name: str, params:dict) -> str:
@@ -101,7 +100,7 @@ async def add_mcp_server(mcp_server_name: str) -> str:
   try:
     if nacos_http_client is None or mcp_updater is None:
       return "服务初始化中，请稍后再试"
-      
+
     mcp_server = await nacos_http_client.get_mcp_server_by_name(mcp_server_name)
     if mcp_server is None or mcp_server.description == "":
       mcp_server = mcp_updater.get_mcp_server_by_name(mcp_server_name)
@@ -258,7 +257,7 @@ def main() -> int:
           )
 
       anyio.run(arun)
-      
+
       return 0
     case "sse":
       from mcp.server.sse import SseServerTransport
@@ -315,7 +314,7 @@ def main() -> int:
       @contextlib.asynccontextmanager
       async def lifespan(app: Starlette) -> AsyncIterator[None]:
         """Context manager for session manager."""
-        async with session_manager.run(): 
+        async with session_manager.run():
           try:
             yield
           finally:
@@ -341,14 +340,8 @@ async def init() -> None:
   nacos_addr = os.getenv("NACOS_ADDR","127.0.0.1:8848")
   nacos_user_name = os.getenv("NACOS_USERNAME","nacos")
   nacos_password = os.getenv("NACOS_PASSWORD","")
-  nacos_http_client = NacosHttpClient(nacosAddr=nacos_addr
-                                        if nacos_addr != ""
-                                        else "127.0.0.1:8848",
-
-                                      userName=nacos_user_name
-                                        if nacos_user_name != ""
-                                        else "nacos",
-
+  nacos_http_client = NacosHttpClient(nacosAddr=nacos_addr or "127.0.0.1:8848",
+                                      userName=nacos_user_name or "nacos",
                                       passwd=nacos_password)
   chroma_db_service = ChromaDb()
 
