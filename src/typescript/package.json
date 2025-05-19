@@ -1,0 +1,45 @@
+{
+  "name": "nacos-mcp-router",
+  "version": "1.0.12",
+  "description": "Nacos MCP Router TypeScript implementation",
+  "main": "dist/stdio.js",
+  "bin": {
+    "nacos-mcp-router": "./dist/stdio.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf dist && tsc && chmod +x dist/stdio.js",
+    "build:watch": "tsc -w",
+    "start": "ts-node src/stdio.ts",
+    "dev-stdio": "ts-node src/stdio.ts",
+    "dev-sse": "ts-node src/simpleSseServer.ts",
+    "test": "jest",
+    "debug": "npx @modelcontextprotocol/inspector npx nacos-mcp-router"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "zod": "^3.23.8",
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@types/node": "^20.11.24",
+    "@xenova/transformers": "^2.17.2",
+    "axios": "^1.9.0",
+    "chromadb": "^2.3.0",
+    "chromadb-default-embed": "^2.14.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "hnswlib-node": "^3.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "rimraf": "^5.0.5",
+    "ts-node-dev": "^2.0.0"
+  }
+}
