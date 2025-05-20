@@ -122,3 +122,31 @@ python -m nacos-mcp-router
   }
 }
 ```
+
+#### Windows系统使用
+Node版本切换工具 [https://github.com/nvm-sh/nvm](https://github.com/nvm-sh/nvm)
+```shell
+ # 安装nacos-mcp-router 使用Nodejs 20及以上版本
+npm install -g nacos-mcp-router
+
+# 获取全局安装的npm包路径
+npm root -g
+```
+
+```json
+{
+  "mcpServers": {
+    "nacos-mcp-router": {
+      "command": "node",
+      "args": [
+        "${获取全局安装的npm包路径}\\nacos-mcp-router\\dist\\stdio.js"
+      ],
+      "env": {
+        "NACOS_ADDR": "<NACOS-ADDR>, 选填，默认为127.0.0.1:8848",
+        "NACOS_USERNAME": "<NACOS-USERNAME>, 选填，默认为nacos",
+        "NACOS_PASSWORD": "<NACOS-PASSWORD>, 必填"
+      }
+    }
+  }
+}
+```
