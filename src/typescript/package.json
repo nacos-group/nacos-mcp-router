@@ -6,6 +6,11 @@
   "bin": {
     "nacos-mcp-router": "./dist/stdio.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "publishConfig": {
     "access": "public"
   },
