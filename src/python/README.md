@@ -86,6 +86,19 @@ Add this to MCP settings of your application:
 
 > You may need to put the full path to the `uvx` executable in the `command` field. You can get this by running `which uvx` on MacOS/Linux or `where uvx` on Windows.
 
+#### Using docker
+```json
+{
+  "mcpServers": {
+    "nacos-mcp-router": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--network", "host",  "-e", "NACOS_ADDR=<NACOS-ADDR>", "-e",  "NACOS_USERNAME=<NACOS-USERNAME>", "-e", "NACOS_PASSWORD=<NACOS-PASSWORD>" ,"-e", "TRANSPORT_TYPE=stdio", "nacos-mcp-router:latest"
+      ]
+    }
+  }
+}
+```
 
 ## Development
 

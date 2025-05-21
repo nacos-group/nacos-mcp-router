@@ -26,7 +26,7 @@ class McpUpdater:
     self._running = False
     self.mcp_server_config_version={}
     self._cache = dict[str, McpServer]()
-    self._chromaDbId = f"nacos_mcp_router_collection_{os.getpid()}"
+    self._chromaDbId = f"nacos_mcp_router_collection"
 
   @classmethod
   async def create(cls,
