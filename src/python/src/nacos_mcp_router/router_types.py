@@ -7,6 +7,7 @@ from contextlib import AsyncExitStack
 from typing import Optional, Any
 
 import chromadb
+import mcp.types
 from chromadb import Metadata
 from chromadb.config import Settings
 from chromadb.api.types import OneOrMany, ID, Document, GetResult, QueryResult
@@ -60,6 +61,8 @@ class CustomServer:
       NacosMcpRouteLogger.get_logger().warning("failed to init mcp server " + self.name + ", config: " + str(self.config), exc_info=e)
       self._initialized_event.set()
       self._shutdown_event.set()
+  def get_initialized_response(self) -> mcp.types.InitializeResult:
+    return self.session_initialized_response
 
   def healthy(self) -> bool:
     return self.session is not None and self._initialized
@@ -131,10 +134,11 @@ class McpServer:
   mcp_config_detail: NacosMcpServerConfig
   agentConfig: dict[str, Any]
   mcp_config_detail: NacosMcpServerConfig
-  def __init__(self, name: str, description: str, agentConfig: dict):
+  def __init__(self, name: str, description: str, agentConfig: dict, id: str):
     self.name = name
     self.description = description
     self.agentConfig = agentConfig
+    self.id = id
   def get_name(self) -> str:
     return self.name
   def get_description(self) -> str:

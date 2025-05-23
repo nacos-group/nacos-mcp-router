@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 class TestAsyncGeneratorsPerformance(unittest.TestCase):
     def setUp(self):
         from nacos_mcp_router.nacos_http_client import NacosHttpClient
-        self.client = NacosHttpClient(nacosAddr="localhost:8848", userName="nacos", passwd="pass")
+        self.client = NacosHttpClient(nacosAddr="localhost:8848", userName="nacos", passwd="pass", namespaceId="public")
     async def asynchronize(self, item):
         await asyncio.sleep(0.1)  # Simulate async operation
         return item * 2
@@ -41,25 +41,25 @@ class TestAsyncGeneratorsPerformance(unittest.TestCase):
 
     #@patch('httpx.AsyncClient.get', new_callable=AsyncMock)
     def test_get_mcp_server_by_name_success(self):
-        mcp_server = asyncio.run(self.client.get_mcp_server_by_name("Puppeteer"))
+        mcp_server = asyncio.run(self.client.get_mcp_server(id="", name="Puppeteer"))
         self.assertEqual(mcp_server.name, "Puppeteer")
         self.assertTrue('Puppeteer' in mcp_server.description, "Check puppeteer is in the returned value.")
 
     def test_get_mcp_server_by_name_failure(self):
-        mcp_server = asyncio.run(self.client.get_mcp_server_by_name("non_existent_mcp"))
+        mcp_server = asyncio.run(self.client.get_mcp_server(id="", name="non_existent_mcp"))
         self.assertEqual(mcp_server.name, "non_existent_mcp")
         self.assertEqual(mcp_server.description, "")
         self.assertEqual(mcp_server.agentConfig, {})
 
     def test_update_mcp_tools_success(self):
         tool = Tool(name="Puppeteer", description="Test Tool-UPDATED", inputSchema={})
-        success = asyncio.run(self.client.update_mcp_tools("Puppeteer", [tool]))
+        success = asyncio.run(self.client.update_mcp_tools("Puppeteer", [tool], "1.0.0", ""))
         self.assertTrue(success)
 
     def test_update_mcp_tools_failure(self):
 
         tool = Tool(name="test_tool", description="Test Tool", inputSchema={})
-        success = asyncio.run(self.client.update_mcp_tools("non_existent_mcp", [tool]))
+        success = asyncio.run(self.client.update_mcp_tools("non_existent_mcp", [tool],"1.0.0", ""))
         self.assertFalse(success)
 
 if __name__ == '__main__':
