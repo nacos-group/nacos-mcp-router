@@ -30,8 +30,6 @@ class NacosHttpClient:
             raise ValueError("userName must be a non-empty string")
         if not isinstance(passwd, str) or not passwd.strip():
             raise ValueError("passwd must be a non-empty string")
-        if not isinstance(namespaceId, str) or not namespaceId.strip():
-            raise ValueError("namespaceId must be a non-empty string")
 
         self.nacosAddr = nacosAddr
         self.userName = userName
@@ -56,11 +54,16 @@ class NacosHttpClient:
             McpServer: An [McpServer] object representing the retrieved MCP server. If the request
                        fails, the object will have default values.
         """
-        quoted_name = urllib.parse.quote(id)
-        uri = f'/nacos/v3/admin/ai/mcp?namespaceId={self.namespaceId}&mcpId={quoted_name}'
-        if id == "" or id is None:
-            quoted_name = urllib.parse.quote(name)
-            uri = f'/nacos/v3/admin/ai/mcp?namespaceId={self.namespaceId}&mcpName={quoted_name}'
+        params = {}
+        if self.namespaceId != "" and self.namespaceId is not None:
+            params['namespaceId'] = self.namespaceId
+        if id is not None and id != "":
+            params['mcpId'] = id
+        else:
+            params['mcpName'] = name
+
+        uri = f'/nacos/v3/admin/ai/mcp?' + urllib.parse.urlencode(params)
+   
 
         success, data = await self.request_nacos(uri)
         if not success:
@@ -85,7 +88,17 @@ class NacosHttpClient:
 
     async def get_mcp_servers_by_page(self, page_no: int, page_size: int):
         mcp_servers = list[McpServer]()
-        uri = f"/nacos/v3/admin/ai/mcp/list?namespaceId={self.namespaceId}&search=blur&pageNo={page_no}&pageSize={page_size}"
+
+        params = {}
+        if self.namespaceId != "":
+            params['namespaceId'] = self.namespaceId
+        params['pageNo'] = page_no
+        params['pageSize'] = page_size
+        params['search'] = "blur"
+
+        uri = f'/nacos/v3/admin/ai/mcp/list?'+urllib.parse.urlencode(params)
+
+
         success, data = await self.request_nacos(uri)
 
         if not success:
@@ -101,9 +114,10 @@ class NacosHttpClient:
             """
             if not m["enabled"]:
                 return None
-
-            id = m["id"]
             name = m["name"]
+            id = ""
+            if "id" in m and m["id"] is not None:
+                id = m["id"]
             s = await self.get_mcp_server(id, name)
             return s if s.description else None
 
@@ -240,7 +254,7 @@ class NacosHttpClient:
                 else:
                     raise ValueError("Invalid method")
         except Exception as e:
-            logger.warning(f"failed to request with NACOS server, uri: {uri}, error: {e}")
+            logger.warning(f"failed to request with NACOS server, uri: {uri}, error: {e}", exc_info=e)
             return False, {}
 
         code = response.status_code

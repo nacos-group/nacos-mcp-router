@@ -417,7 +417,7 @@ async def init() -> int:
         nacos_addr = os.getenv("NACOS_ADDR", "127.0.0.1:8848")
         nacos_user_name = os.getenv("NACOS_USERNAME", "nacos")
         nacos_password = os.getenv("NACOS_PASSWORD", "")
-        nacos_namespace = os.getenv("NACOS_NAMESPACE", "public")
+        nacos_namespace = os.getenv("NACOS_NAMESPACE", "")
         nacos_http_client = NacosHttpClient(nacosAddr=nacos_addr,
                                             userName=nacos_user_name,
                                             passwd=nacos_password,
