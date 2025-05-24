@@ -26,7 +26,7 @@ class McpUpdater:
     self._running = False
     self.mcp_server_config_version={}
     self._cache = dict[str, McpServer]()
-    self._chromaDbId = f"nacos_mcp_router_collection_{os.getpid()}"
+    self._chromaDbId = f"nacos_mcp_router_collection"
 
   @classmethod
   async def create(cls,
@@ -90,7 +90,7 @@ class McpUpdater:
       except Exception as e:
         logger.warning("exception while updating mcp servers: " , exc_info=e)
 
-  def getMcpServer(self, query: str, count: int) -> list[McpServer]:
+  def getMcpServer(self, query: str, count: int) -> list[McpServer | None]:
     result = self.chromaDbService.query(query, count)
     if result is None:
       return []
@@ -121,7 +121,7 @@ class McpUpdater:
     logger.info(f"result mcp servers search by keywords: {len(servers)}")
     return servers
 
-  def get_mcp_server_by_name(self, mcp_name: str) -> McpServer:
+  def get_mcp_server_by_name(self, mcp_name: str) -> McpServer | None:
     return self._cache.get(mcp_name)
     
 

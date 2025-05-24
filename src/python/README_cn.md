@@ -85,6 +85,19 @@ python -m nacos-mcp-router
 
 > 如果启动失败，你需要把`command`字段里的`uvx`替换为命令的全路径。`uvx`命令全路径查找方法为：MacOS或Linux系统下使用`which uvx`，Windows系统使用`where uvx`。
 
+#### 使用 docker
+```json
+{
+  "mcpServers": {
+    "nacos-mcp-router": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--network", "host",  "-e", "NACOS_ADDR=<NACOS-ADDR>", "-e",  "NACOS_USERNAME=<NACOS-USERNAME>", "-e", "NACOS_PASSWORD=<NACOS-PASSWORD>" ,"-e", "TRANSPORT_TYPE=stdio", "nacos-mcp-router:latest"
+      ]
+    }
+  }
+}
+```
 
 ## 开发
 
