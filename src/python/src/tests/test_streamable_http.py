@@ -15,13 +15,6 @@ async def main():
             await session.initialize()
             tool_list = await session.list_tools()
             print(tool_list)
-            # Call a tool
-            tool_result = await session.call_tool("search_mcp_server", {"task_description": "天气","key_words": "天气"})
-            print(tool_result)
-            tool_result = await session.call_tool("add_mcp_server", {"mcp_server_name": "amap-mcp-server"})
-            print(tool_result)
-            tool_result = await session.call_tool("use_tool", {"mcp_server_name": "amap-mcp-server","mcp_tool_name": "maps_weather","params": "{\"city\": \"杭州\"}"})
-            print(tool_result)
 
 if __name__ == "__main__":
     import asyncio

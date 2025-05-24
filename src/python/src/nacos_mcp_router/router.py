@@ -155,10 +155,9 @@ def search_mcp_server(task_description: str, key_words: str) -> str:
         router_logger.info(f"Found {len(result)} server(s) totally")
         content = json.dumps(result, ensure_ascii=False)
 
-        json_string = f'''## 获取{task_description}的步骤如下：
-    ### 1. 当前可用的mcp server列表为：{content}
-    ### 2. 从当前可用的mcp server列表中选择你需要的mcp server调add_mcp_server工具安装mcp server
-    '''
+        json_string = ("## 获取" + task_description + "的步骤如下：\n"
+                  + "### 1. 当前可用的mcp server列表为：" + content
+                  + "\n### 2. 从当前可用的mcp server列表中选择你需要的mcp server调add_mcp_server工具安装mcp server")
 
         return json_string
     except Exception as e:
@@ -250,8 +249,7 @@ async def add_mcp_server(mcp_server_name: str) -> str:
             await nacos_http_client.update_mcp_tools(mcp_server_name, tools, version,
                                                      mcp_server.id if mcp_server.id else "")
 
-        result = "1. " + mcp_server_name + "安装完成, tool 列表为: " + json.dumps(tool_list,
-                                                                                  ensure_ascii=False) + "\n 2." + mcp_server_name + "的工具需要通过nacos-mcp-router的use_tool工具代理使用"
+        result = "1. " + mcp_server_name + "安装完成, tool 列表为: " + json.dumps(tool_list, ensure_ascii=False) + "\n2." + mcp_server_name + "的工具需要通过nacos-mcp-router的use_tool工具代理使用"
         return result
     except Exception as e:
         router_logger.warning("failed to install mcp server: " + mcp_server_name, exc_info=e)
@@ -335,6 +333,25 @@ def start_server(app: Server) -> int:
                 json_response=False,
                 stateless=True,
             )
+
+            from mcp.server.sse import SseServerTransport
+            from starlette.applications import Starlette
+            from starlette.responses import Response
+            from starlette.routing import Mount, Route
+            import contextlib
+            from collections.abc import AsyncIterator
+
+            sse_transport = SseServerTransport("/messages/")
+            sse_port = int(os.getenv("PORT", "8000"))
+
+            async def handle_sse(request):
+                async with sse_transport.connect_sse(
+                        request.scope, request.receive, request._send
+                ) as streams:
+                    await app.run(
+                        streams[0], streams[1], app.create_initialization_options()
+                    )
+                return Response()
             async def handle_streamable_http(
                     scope: Scope, receive: Receive, send: Send
             ) -> None:
@@ -360,6 +377,8 @@ def start_server(app: Server) -> int:
                 debug=True,
                 routes=[
                     Mount("/mcp", app=handle_streamable_http),
+                    Route("/sse", endpoint=handle_sse, methods=["GET"]),
+                    Mount("/messages/", app=sse_transport.handle_post_message),
                 ],
                 lifespan=lifespan,
             )

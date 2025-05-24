@@ -115,11 +115,15 @@ class NacosHttpClient:
             if not m["enabled"]:
                 return None
             name = m["name"]
-            id = ""
-            if "id" in m and m["id"] is not None:
-                id = m["id"]
-            s = await self.get_mcp_server(id, name)
-            return s if s.description else None
+            if (m["protocol"] == "mcp-sse" or m["protocol"] == "stdio") :    
+                id = ""
+                if "id" in m and m["id"] is not None:
+                    id = m["id"]
+                
+                s = await self.get_mcp_server(id, name)
+                return s if s.description else None
+            else:
+                return None
 
         tasks = [ _to_mcp_server(m) for m in data['pageItems']]
         tasks = [t for t in tasks if t is not None]
