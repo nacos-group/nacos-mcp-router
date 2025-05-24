@@ -183,11 +183,15 @@ class NacosHttpClient:
         Returns:
            bool: True if the update was successful, otherwise False.
         """
-        quoted_name = urllib.parse.quote(mcp_name)
-        uri = f"/nacos/v3/admin/ai/mcp?namespaceId={self.namespaceId}&mcpName={quoted_name}"
+        params = {}
+        if self.namespaceId != "":
+            params['namespaceId'] = self.namespaceId
         if id != "":
-            quoted_name = urllib.parse.quote(id)
-            uri = f"/nacos/v3/admin/ai/mcp?namespaceId={self.namespaceId}&mcpId={quoted_name}"
+            params['mcpId'] = id
+        else:
+            params['mcpName'] = mcp_name
+
+        uri = f'/nacos/v3/admin/ai/mcp?'+urllib.parse.urlencode(params)
 
         # get original server config
         success, data = await self.request_nacos(uri)
@@ -195,7 +199,10 @@ class NacosHttpClient:
             logger.warning(f"failed to update mcp tools list, uri {uri}")
             return False
         data["versionDetail"] = {"version": version}
-        data["namespaceId"] = self.namespaceId
+        
+        if self.namespaceId != "":
+            data["namespaceId"] = self.namespaceId
+
         params = _parse_tool_params(data, mcp_name, tools)
 
         logger.info(f"Trying to update mcp tools with params {json.dumps(params, ensure_ascii=False)}")

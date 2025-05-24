@@ -23,7 +23,7 @@ def _stdio_transport_context(config: dict[str, Any]):
 
 
 def _sse_transport_context(config: dict[str, Any]):
-  return sse_client(url=config['url'], headers=config['headers'], timeout=10)
+  return sse_client(url=config['url'], headers=config['headers'] if 'headers' in config else {}, timeout=10)
 
 
 class CustomServer:

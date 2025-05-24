@@ -28,6 +28,7 @@ proxied_mcp_name: str = ""
 mode: str = MODE_ROUTER
 proxied_mcp_server_config: dict = {}
 transport_type: str = TRANSPORT_TYPE_STDIO
+auto_register_tools: bool = True
 
 
 def router_tools() -> list[types.Tool]:
@@ -95,9 +96,14 @@ async def init_proxied_mcp() -> bool:
 
     mcp_server = CustomServer(name=proxied_mcp_name, config=proxied_mcp_server_config)
     await mcp_server.wait_for_initialization()
-
+    
     if mcp_server.healthy():
         mcp_servers_dict[proxied_mcp_name] = mcp_server
+        if auto_register_tools and nacos_http_client is not None:
+            tools = await mcp_server.list_tools()
+            init_result = mcp_server.get_initialized_response()
+            version = init_result.serverInfo.version if init_result else "1.0.0"
+            await nacos_http_client.update_mcp_tools(proxied_mcp_name, tools, version, "")
         return True
     else:
         return False
@@ -412,7 +418,8 @@ def main() -> int:
 
 
 async def init() -> int:
-    global mcp_updater, nacos_http_client, mode, proxied_mcp_name, proxied_mcp_server_config, transport_type
+    global mcp_updater, nacos_http_client, mode, proxied_mcp_name, proxied_mcp_server_config, transport_type, auto_register_tools
+    
     try:
         nacos_addr = os.getenv("NACOS_ADDR", "127.0.0.1:8848")
         nacos_user_name = os.getenv("NACOS_USERNAME", "nacos")
@@ -422,6 +429,7 @@ async def init() -> int:
                                             userName=nacos_user_name,
                                             passwd=nacos_password,
                                             namespaceId=nacos_namespace)
+        auto_register_tools = os.getenv("AUTO_REGISTER_TOOLS", "true").lower() == "true"
         mode = os.getenv("MODE", MODE_ROUTER)
         proxied_mcp_name = os.getenv("PROXIED_MCP_NAME", "")
         proxied_mcp_server_config_str = os.getenv("PROXIED_MCP_SERVER_CONFIG", "")
@@ -429,7 +437,17 @@ async def init() -> int:
             proxied_mcp_server_config = json.loads(proxied_mcp_server_config_str)
 
         transport_type = os.getenv("TRANSPORT_TYPE", TRANSPORT_TYPE_STDIO)
-        init_str = f"init server, nacos_addr: {nacos_addr}, nacos_user_name: {nacos_user_name}, nacos_password: {nacos_password},mode: {mode},transport_type: {transport_type}, proxied_mcp_name: {proxied_mcp_name}, proxied_mcp_server_config: {proxied_mcp_server_config}"
+        init_str = (
+            f"init server, nacos_addr: {nacos_addr}, "
+            f"nacos_user_name: {nacos_user_name}, "
+            f"nacos_password: {nacos_password}, "
+            f"mode: {mode}, "
+            f"transport_type: {transport_type}, "
+            f"proxied_mcp_name: {proxied_mcp_name}, "
+            f"proxied_mcp_server_config: {proxied_mcp_server_config}, "
+            f"auto_register_tools: {auto_register_tools}"
+        )
+        
         print(init_str)
 
         router_logger.info(init_str)
@@ -437,13 +455,15 @@ async def init() -> int:
         if mode == MODE_PROXY and proxied_mcp_name == "":
             raise NacosMcpRouterException("proxied_mcp_name must be set in proxy mode")
 
-        if mode == MODE_PROXY and proxied_mcp_server_config is None:
+        if mode == MODE_PROXY and (proxied_mcp_server_config_str == "" or proxied_mcp_server_config_str is None):
+            print(f"proxied_mcp_server_config_str is empty, get mcp server from nacos, proxied_mcp_name: {proxied_mcp_name}")
             mcp_server = await nacos_http_client.get_mcp_server(id="", name=proxied_mcp_name)
+            print(f"proxied_mcp_server_config: {mcp_server.agent_config()}")
             proxied_mcp_server_config = mcp_server.agent_config()
 
-        chroma_db_service = ChromaDb()
-
-        mcp_updater = await McpUpdater.create(nacos_http_client, chroma_db_service, 60)
+        if  mode == MODE_ROUTER:
+            chroma_db_service = ChromaDb()
+            mcp_updater = await McpUpdater.create(nacos_http_client, chroma_db_service, 60)
         return 0
     except Exception as e:
         router_logger.error("failed to start", exc_info= e)
