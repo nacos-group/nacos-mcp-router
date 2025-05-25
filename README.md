@@ -156,8 +156,7 @@ docker run -d --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 | PROXIED_MCP_NAME | 代理的 MCP 服务器名称 | - | 否 | proxy模式下需要被转换的 MCP 服务器名称，需要先注册到Nacos
 | MODE | 工作模式 | router  | 否 |可选的值：router、proxy |
 
-
-
+### [常见问题](./src/python/docs/troubleshooting.md)
 
 
 ## Typescript接入
