@@ -1,3 +1,5 @@
+#-*- coding: utf-8 -*-
+
 import asyncio
 import logging
 import os
@@ -5,12 +7,13 @@ from contextlib import AsyncExitStack
 from typing import Optional, Any
 
 import chromadb
+import mcp.types
 from chromadb import Metadata
 from chromadb.config import Settings
 from chromadb.api.types import OneOrMany, ID, Document, GetResult, QueryResult
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from mcp.client.stdio import get_default_environment, StdioServerParameters, stdio_client
+from mcp.client.stdio import StdioServerParameters, stdio_client
 from .logger import NacosMcpRouteLogger
 from .nacos_mcp_server_config import NacosMcpServerConfig
 
@@ -20,7 +23,7 @@ def _stdio_transport_context(config: dict[str, Any]):
 
 
 def _sse_transport_context(config: dict[str, Any]):
-  return sse_client(url=config['url'], headers=config['headers'], timeout=10)
+  return sse_client(url=config['url'], headers=config['headers'] if 'headers' in config else {}, timeout=10)
 
 
 class CustomServer:
@@ -58,6 +61,8 @@ class CustomServer:
       NacosMcpRouteLogger.get_logger().warning("failed to init mcp server " + self.name + ", config: " + str(self.config), exc_info=e)
       self._initialized_event.set()
       self._shutdown_event.set()
+  def get_initialized_response(self) -> mcp.types.InitializeResult:
+    return self.session_initialized_response
 
   def healthy(self) -> bool:
     return self.session is not None and self._initialized
@@ -129,10 +134,11 @@ class McpServer:
   mcp_config_detail: NacosMcpServerConfig
   agentConfig: dict[str, Any]
   mcp_config_detail: NacosMcpServerConfig
-  def __init__(self, name: str, description: str, agentConfig: dict):
+  def __init__(self, name: str, description: str, agentConfig: dict, id: str):
     self.name = name
     self.description = description
     self.agentConfig = agentConfig
+    self.id = id
   def get_name(self) -> str:
     return self.name
   def get_description(self) -> str:
@@ -152,7 +158,7 @@ class ChromaDb:
                 settings=Settings(
                     anonymized_telemetry=False,
                 ))
-    self._collectionId = "nacos_mcp_router-collection-" + str(os.getpid())
+    self._collectionId = "nacos_mcp_router-collection"
     self._collection = self.dbClient.get_or_create_collection(self._collectionId)
     self.preIds = []
 

@@ -32,16 +32,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: ".python-version"
+          python-version-file: "./src/python/.python-version"
 
       - name: Install dependencies
-        working-directory: .
+        working-directory: ./src/python
         run: uv sync --frozen --all-extras --dev
 
       - name: Run pyright
-        working-directory: .
+        working-directory: ./src/python
         run: uv run --frozen pyright
 
       - name: Build package
-        working-directory: .
+        working-directory: ./src/python
         run: uv build

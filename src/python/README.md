@@ -9,7 +9,15 @@
 
 This MCP(Model Context Protocol) Server provides tools to search, install, proxy other MCP servers.
 
-### Tools
+Nacos-MCP-Router has two working modes:
+
+Router mode: The default mode, which recommends, distributes, installs, and proxies the functions of other MCP Servers through the MCP Server, helping users more conveniently utilize MCP Server services.
+
+Proxy mode: Specified by the environment variable MODE=proxy, it can convert SSE and stdio protocol MCP Servers into streamable HTTP protocol MCP Servers through simple configuration.
+
+## Quick Start
+### router mode
+#### Tools
 
 1. `search_mcp_server`
     - Search MCP servers by task and keywords.
@@ -30,14 +38,19 @@ This MCP(Model Context Protocol) Server provides tools to search, install, proxy
      - `params`(map): The parameters of the MCP tool.
    - Returns: Result returned from the target MCP server.
 
-## Installation
-
-### Using uv (recommended)
+####  Usage
+##### Using uv (recommended)
 
 When using [`uv`](https://docs.astral.sh/uv/) no specific installation is needed. We will
 use [`uvx`](https://docs.astral.sh/uv/guides/tools/) to directly run *nacos-mcp-router*.
+```
+export NACOS_ADDR=127.0.0.1:8848
+export NACOS_USERNAME=nacos
+export NACOS_PASSWORD=$PASSWORD
+uvx nacos-mcp-router@latest
+```
 
-### Using PIP
+##### Using PIP
 
 Alternatively you can install `nacos-mcp-router` via pip:
 
@@ -54,13 +67,16 @@ export NACOS_PASSWORD=$PASSWORD
 python -m nacos-mcp-router
 ```
 
-## Configuration
+##### Using Docker
+```
+docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$NACOS_USERNAME -e NACOS_PASSWORD=$NACOS_PASSWORD -e TRANSPORT_TYPE=$TRANSPORT_TYPE nacos-mcp-router:latest
+```
 
-### Usage with Cline、Cursor、Claude and other applications
+##### Usage with Cline、Cursor、Claude and other applications
 
 Add this to MCP settings of your application:
 
-#### Using uvx
+####### Using uvx
 
 ```json
 {
@@ -85,6 +101,29 @@ Add this to MCP settings of your application:
 ```
 
 > You may need to put the full path to the `uvx` executable in the `command` field. You can get this by running `which uvx` on MacOS/Linux or `where uvx` on Windows.
+
+###### Using docker
+```json
+{
+  "mcpServers": {
+    "nacos-mcp-router": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--network", "host",  "-e", "NACOS_ADDR=<NACOS-ADDR>", "-e",  "NACOS_USERNAME=<NACOS-USERNAME>", "-e", "NACOS_PASSWORD=<NACOS-PASSWORD>" ,"-e", "TRANSPORT_TYPE=stdio", "nacos-mcp-router:latest"
+      ]
+    }
+  }
+}
+```
+
+### Proxy Mode
+The proxy mode supports converting SSE and stdio protocol MCP Servers into streamable HTTP protocol MCP Servers.
+
+#### Usage
+The usage of proxy mode is similar to that of router mode, with slightly different parameters. Docker deployment is recommended.
+```
+docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$NACOS_USERNAME -e NACOS_PASSWORD=$NACOS_PASSWORD -e TRANSPORT_TYPE=streamable_http -e MODE=proxy -e PROXIED_MCP_NAME=$PROXIED_MCP_NAME  nacos-mcp-router:latest
+```
 
 
 ## Development
@@ -112,6 +151,17 @@ If you are doing local development, simply follow the steps:
   }
 }
 ```
+
+## Environment Variable Settings  
+
+| Parameter | Description | Default Value | Required | Remarks |  
+|-----------|-------------|---------------|----------|---------|  
+| NACOS_ADDR | Nacos server address | 127.0.0.1:8848 | No | the Nacos server address, e.g., 192.168.1.1:8848. Note: Include the port. |  
+| NACOS_USERNAME | Nacos username | nacos | No | the Nacos username, e.g., nacos. |  
+| NACOS_PASSWORD | Nacos password | - | Yes | the Nacos password, e.g., nacos. |  
+| TRANSPORT_TYPE | Transport protocol type | stdio | No | transport protocol type. Options: stdio, sse, streamable_http. |  
+| PROXIED_MCP_NAME | Proxied MCP server name | - | No | In proxy mode, specify the MCP server name to be converted. Must be registered in Nacos first. |  
+| MODE | Working mode | router | No | Available options: router, proxy. |
 
 ## License
 

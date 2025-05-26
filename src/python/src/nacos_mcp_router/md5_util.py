@@ -1,3 +1,4 @@
+#-*- coding: utf-8 -*-
 import hashlib
 
 def get_md5(text: str) -> str:

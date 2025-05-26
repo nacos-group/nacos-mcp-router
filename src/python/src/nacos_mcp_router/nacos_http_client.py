@@ -1,167 +1,329 @@
-import json
+#-*- coding: utf-8 -*-
 
+import json
+import urllib.parse
 import httpx
+import asyncio
+import os
 from mcp import Tool
 
 from .router_types import McpServer
-from .nacos_mcp_server_config import NacosMcpServerConfig, ToolSpec
+from .nacos_mcp_server_config import NacosMcpServerConfig
 from .logger import NacosMcpRouteLogger
 
+# logger, setup logger if not exists
+logger = NacosMcpRouteLogger.get_logger()
+
+# Content types, used in request Nacos Server http headers, default is JSON.
+CONTENT_TYPE_JSON = "application/json; charset=utf8"
+CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded; charset=utf8"
+
+# HTTP schema, default is HTTP
+_SCHEMA_HTTP = "http"
+_SCHEMA = os.getenv("NACOS_SERVER_SCHEMA", _SCHEMA_HTTP)
 
 class NacosHttpClient:
-    def __init__(self, nacosAddr: str, userName: str, passwd: str) -> None:
-        if nacosAddr == "":
-            raise ValueError("nacosAddr cannot be an empty string")
-        if userName == "":
-            raise ValueError("userName cannot be an empty string")
-        if passwd == "":
-            raise ValueError("passwd cannot be an empty string")
+    def __init__(self, nacosAddr: str, userName: str, passwd: str, namespaceId: str) -> None:
+        if not isinstance(nacosAddr, str) or not nacosAddr.strip():
+            raise ValueError("nacosAddr must be a non-empty string")
+        if not isinstance(userName, str) or not userName.strip():
+            raise ValueError("userName must be a non-empty string")
+        if not isinstance(passwd, str) or not passwd.strip():
+            raise ValueError("passwd must be a non-empty string")
 
         self.nacosAddr = nacosAddr
         self.userName = userName
         self.passwd = passwd
+        self.schema = _SCHEMA
+        self.namespaceId = namespaceId
 
-    def get_mcp_server_by_name(self, name: str) -> McpServer:
-        url = "http://{0}/nacos/v3/admin/ai/mcp?mcpName={1}".format(self.nacosAddr, name)
-        headers = {"Content-Type": "application/json", "charset": "utf-8", "userName": self.userName,
-                   "password": self.passwd}
-        response = httpx.get(url, headers=headers)
-        mcp_server = McpServer(name=name, description="", agentConfig={})
-        if response.status_code == 200:
-            jsonObj = json.loads(response.content.decode("utf-8"))
-            data = jsonObj['data']
-            config = NacosMcpServerConfig.from_dict(data)
-            mcpServer = McpServer(name=config.name, description=config.description if config.description is not None else "",
-                                  agentConfig=config.local_server_config)
-            mcpServer.mcp_config_detail = config
+    async def get_mcp_server(self, id: str, name:str) -> McpServer:
+        """
+        Retrieve an MCP server by its name from the NACOS server.
 
-            if config.protocol != "stdio":
-                if len(config.backend_endpoints) > 0:
-                    endpoint = config.backend_endpoints[0]
-                    http_schema = "http"
-                    if endpoint.port == 443:
-                        http_schema = "https"
+        This asynchronous method sends a GET request to the NACOS server to fetch the configuration
+        of a specific MCP server identified by its name. If the request is successful, it constructs
+        an `McpServer` object using the retrieved data. If the request fails, it logs a warning and
+        returns an `McpServer` object with default values.
 
-                    url = "{0}://{1}:{2}{3}".format(http_schema, endpoint.address, str(
-                        endpoint.port), config.remote_server_config.export_path)
-                    if not config.remote_server_config.export_path.startswith("/"):
-                        url = "{0}://{1}:{2}/{3}".format(http_schema, endpoint.address, str(
-                            endpoint.port), config.remote_server_config.export_path)
+        Args:
+            name (str): The name of the MCP server to retrieve.
+            id (str): The ID of the MCP server to retrieve.
 
-                    if 'mcpServers' not in mcpServer.agentConfig or mcpServer.agentConfig['mcpServers'] == None:
-                        mcpServer.agentConfig['mcpServers'] = {}
-                    mcpServers = mcpServer.agentConfig['mcpServers']
-                    dct = {"name": mcp_server.name, "description": mcp_server.description, "url": url}
-                    mcpServers[mcp_server.name] = dct
-            return mcpServer
+        Returns:
+            McpServer: An [McpServer] object representing the retrieved MCP server. If the request
+                       fails, the object will have default values.
+        """
+        params = {}
+        if self.namespaceId != "" and self.namespaceId is not None:
+            params['namespaceId'] = self.namespaceId
+        if id is not None and id != "":
+            params['mcpId'] = id
         else:
-            NacosMcpRouteLogger.get_logger().warning("failed to get mcp server {}, response  {}" .format(mcp_server.name, response.content))
+            params['mcpName'] = name
+
+        uri = f'/nacos/v3/admin/ai/mcp?' + urllib.parse.urlencode(params)
+   
+
+        success, data = await self.request_nacos(uri)
+        if not success:
+            logger.warning(f"failed to get mcp server, name {name}, id {id}")
+            return  McpServer(name=name, description="", agentConfig={}, id=id)
+
+        data['id'] = id
+        config = NacosMcpServerConfig.from_dict(data)
+        mcp_server = McpServer(name=config.name,
+                               description=config.description or "",
+                               agentConfig=config.local_server_config,
+                               id=id)
+            
+        mcp_server.mcp_config_detail = config
+
+        if config.protocol == "stdio" or len(config.backend_endpoints) == 0:
+            return mcp_server
+
+        _parse_mcp_detail(mcp_server, config, name)
+
         return mcp_server
 
-    def get_mcp_servers_by_page(self, page_no: int, page_size: int) -> list[McpServer]:
-        mcpServers = list[McpServer]()
-        try:
-            url = "http://{0}/nacos/v3/admin/ai/mcp/list?pageNo={1}&pageSize={2}".format(self.nacosAddr, str(page_no), str(
-                page_size))
-            headers = {"Content-Type": "application/json", "charset": "utf-8", "userName": self.userName,
-                       "password": self.passwd}
-            response = httpx.get(url, headers=headers)
-            if response.status_code != 200:
-                NacosMcpRouteLogger.get_logger().warning(
-                    "failed to get mcp server list response  {}".format( response.content))
-                return []
+    async def get_mcp_servers_by_page(self, page_no: int, page_size: int):
+        mcp_servers = list[McpServer]()
 
-            jsonObj = json.loads(response.content.decode("utf-8"))
-            data = jsonObj['data']
-            for mcp_server_dict in data['pageItems']:
-                if mcp_server_dict["enabled"] and (mcp_server_dict["protocol"] == "mcp-sse" or mcp_server_dict["protocol"] == "stdio") :
-                    mcp_name = mcp_server_dict["name"]
-                    mcpServer = self.get_mcp_server_by_name(mcp_name)
+        params = {}
+        if self.namespaceId != "":
+            params['namespaceId'] = self.namespaceId
+        params['pageNo'] = page_no
+        params['pageSize'] = page_size
+        params['search'] = "blur"
 
-                    if mcpServer.description == "":
-                        continue
-                    mcpServers.append(mcpServer)
-            return mcpServers
-        except Exception as e:
-            NacosMcpRouteLogger.get_logger().warning("failed to get mcp server list", exc_info=e)
-            return mcpServers
-
-    def get_mcp_servers(self) -> list[McpServer]:
-        mcpServers = []
-        try:
-            page_size = 100
-            page_no = 1
-            url = "http://{0}/nacos/v3/admin/ai/mcp/list?pageNo={1}&pageSize={2}".format(self.nacosAddr, str(page_no), str(
-                page_size))
-
-            headers = {"Content-Type": "application/json", "charset": "utf-8", "userName": self.userName,
-                       "password": self.passwd}
-            response = httpx.get(url, headers=headers)
-            if response.status_code != 200:
-                NacosMcpRouteLogger.get_logger().warning(
-                    "failed to get mcp server list, url {},  response  {}".format(url, response.content.decode("utf-8")))
-                return []
-
-            jsonObj = json.loads(response.content.decode("utf-8"))
-            total_count = jsonObj['data']['totalCount']
-            total_pages = int(total_count / page_size) + 1
-
-            for i in range(1, total_pages + 1):
-                mcps = self.get_mcp_servers_by_page(i, page_size)
-                for mcp_server in mcps:
-                    mcpServers.append(mcp_server)
-            return mcpServers
-        except Exception as e:
-            return mcpServers
-
-    def update_mcp_tools(self,mcp_name:str, tools: list[Tool]) -> bool:
-        url = "http://{0}/nacos/v3/admin/ai/mcp?mcpName={1}".format(self.nacosAddr, mcp_name)
-        headers = {"Content-Type": "application/json", "charset": "utf-8", "userName": self.userName,
-                   "password": self.passwd}
-        response = httpx.get(url, headers=headers)
-
-        if response.status_code == 200:
-            jsonObj = json.loads(response.content.decode("utf-8"))
-            data = jsonObj['data']
-            tool_list = []
-            for tool in tools:
-                dct = {}
-                dct["name"] = tool.name
-                dct["description"] = tool.description
-                dct["inputSchema"] = tool.inputSchema
-                tool_list.append(dct)
-            endpointSpecification = {}
-            if data['protocol'] != "stdio":
-               endpointSpecification['data'] = data['remoteServerConfig']['serviceRef']
-               endpointSpecification['type'] = 'REF'
-            if 'toolSpec' not in data or data['toolSpec'] is None:
-                data['toolSpec'] = {}
-
-            data['toolSpec']['tools'] = tool_list
-            params = {}
-            params['mcpName'] = mcp_name
-            toolSpecification = data['toolSpec']
+        uri = f'/nacos/v3/admin/ai/mcp/list?'+urllib.parse.urlencode(params)
 
 
-            del data['toolSpec']
-            del data['backendEndpoints']
+        success, data = await self.request_nacos(uri)
 
+        if not success:
+            logger.warning("failed to get mcp server list response")
+            return 0, mcp_servers
 
-            params["serverSpecification"] = json.dumps(data, ensure_ascii=False)
-            params["endpointSpecification"] = json.dumps(endpointSpecification, ensure_ascii=False)
-            params["toolSpecification"] = json.dumps(toolSpecification, ensure_ascii=False)
+        total_count = data['totalCount']
 
-            NacosMcpRouteLogger.get_logger().info("update mcp tools, params {}".format(json.dumps(params, ensure_ascii=False)))
-            url = "http://" + self.nacosAddr + "/nacos/v3/admin/ai/mcp?"
-            headers = {"Content-Type": "application/x-www-form-urlencoded", "charset": "utf-8", "userName": self.userName,
-                       "password": self.passwd}
-            response_update = httpx.put(url, headers=headers, data=params)
-            if response_update.status_code == 200:
-                return True
+        async def _to_mcp_server(m: dict) -> McpServer | None:
+            """
+            Fetch the mcp server unless the server is disabled(enabled=false)
+            or it's description field is None.
+            """
+            if not m["enabled"]:
+                return None
+            name = m["name"]
+            if (m["protocol"] == "mcp-sse" or m["protocol"] == "stdio") :    
+                id = ""
+                if "id" in m and m["id"] is not None:
+                    id = m["id"]
+                
+                s = await self.get_mcp_server(id, name)
+                return s if s.description else None
             else:
-                NacosMcpRouteLogger.get_logger().warning(
-                    "failed to update mcp tools list, caused: {}".format(response_update.content))
-                return False
+                return None
+
+        tasks = [ _to_mcp_server(m) for m in data['pageItems']]
+        tasks = [t for t in tasks if t is not None]
+        if tasks:
+            # use asyncio.gather to run the tasks concurrently
+            # and wait for all of them to complete
+            # this is more efficient than using await for each task
+            # because it allows multiple tasks to run at the same time
+            # instead of waiting for each one to finish before starting the next
+            mcp_servers = await asyncio.gather(*tasks)
+            mcp_servers = [s for s in mcp_servers if s is not None]
+
+        return total_count, list(mcp_servers)
+
+    async def get_mcp_servers(self) -> list[McpServer]:
+        """Loading the remote MCP servers from Nacos Server.
+
+        This asynchronous method retrieves a list of MCP servers from the Nacos Server.
+        It uses pagination to continuously fetch server information until all server information is obtained.
+        The method first initializes the list of MCP servers and pagination parameters, then enters a loop to call
+        the get_mcp_servers_by_page method to get the total number of servers and server list for the current page.
+        If the total number of servers is 0 or the server list is empty, it means there are no servers available, and the loop ends.
+        Otherwise, the server list for the current page is added to the result list. If the number of servers collected reaches the total number,
+        it means all server information has been collected, and the loop ends. Otherwise, the page number is incremented and the loop continues until all servers are collected.
+
+        Returns:
+            list[McpServer]: A list of MCP servers.
+        """
+        mcp_servers, page_no, page_size = [], 1, 100
+
+        while True:
+            total_count, servers = await self.get_mcp_servers_by_page(page_no, page_size)
+            if total_count == 0 or not servers:
+                break
+
+            mcp_servers.extend(servers)
+            if len(mcp_servers) >= total_count:
+                break
+
+            # continue to looping
+            page_no += 1
+
+        logger.info(f"get mcp server list, total count {len(mcp_servers)}")
+        return mcp_servers
+
+    async def update_mcp_tools(self, mcp_name:str, tools: list[Tool], version: str, id: str) -> bool:
+        """
+        Update the tools list for a specified MCP.
+
+        This asynchronous method updates the tools associated with a specific MCP by sending
+        an HTTP PUT request to the Nacos server. It first retrieves the current configuration
+        of the MCP using a GET request. If the retrieval is unsuccessful, it logs a warning
+        and returns False. If successful, it parses the tool parameters and sends a PUT request
+        to update the tools list.
+
+        Args:
+           mcp_name (str): The name of the MCP for which the tools list needs to be updated.
+           tools (list[Tool]): A list of Tool objects representing the new tools configuration.
+           id (str): The id of the MCP server.
+
+        Returns:
+           bool: True if the update was successful, otherwise False.
+        """
+        params = {}
+        if self.namespaceId != "":
+            params['namespaceId'] = self.namespaceId
+        if id != "":
+            params['mcpId'] = id
         else:
-            NacosMcpRouteLogger.get_logger().warning("failed to update mcp tools list, caused: {}".format(response.content))
+            params['mcpName'] = mcp_name
+
+        uri = f'/nacos/v3/admin/ai/mcp?'+urllib.parse.urlencode(params)
+
+        # get original server config
+        success, data = await self.request_nacos(uri)
+        if not success:
+            logger.warning(f"failed to update mcp tools list, uri {uri}")
             return False
+        data["versionDetail"] = {"version": version}
+        
+        if self.namespaceId != "":
+            data["namespaceId"] = self.namespaceId
+
+        params = _parse_tool_params(data, mcp_name, tools)
+
+        logger.info(f"Trying to update mcp tools with params {json.dumps(params, ensure_ascii=False)}")
+
+        success, _ = await self.request_nacos(f"/nacos/v3/admin/ai/mcp?",
+                                              method='PUT',
+                                              data=params,
+                                              content_type=CONTENT_TYPE_URLENCODED)
+
+        logger.warning(f"Update mcp tools, name: {mcp_name}, result: {success}")
+
+        return success
+
+    async def request_nacos(self, uri,
+                            method='GET',
+                            data=None,
+                            content_type=CONTENT_TYPE_JSON) -> tuple[bool, dict]:
+        """
+        Asynchronously send a request to the NACOS server.
+
+        This method sends an HTTP request to the NACOS server using the specified URI, HTTP method, and data.
+        It handles exceptions and logs warnings for any errors encountered during the request or response parsing with
+        json.
+
+        Args:
+            uri (str): The URI path for the request.
+            method (str): The HTTP method to use. Supported methods are 'GET', 'POST', 'PUT', and 'DELETE'. Defaults to 'GET'.
+            data (dict, optional): The data to send with the request. Required for 'POST', 'PUT', and 'DELETE' methods. Defaults to None.
+            content_type (str, optional): The transmitting http body using encoding methd.
+
+        Returns:
+            tuple[bool, dict]: A tuple containing:
+                - A boolean indicating whether the request was successful.
+                - The parsed JSON response data if the request was successful, otherwise None.
+
+        Raises:
+            ValueError: If an invalid HTTP method is provided.
+        """
+
+        try:
+            url = f"{self.schema}://{self.nacosAddr}{uri}"
+            headers = {"Content-Type": content_type,
+                       "charset": "utf-8",
+                       "userName": self.userName,
+                       "password": self.passwd}
+
+            async with httpx.AsyncClient() as client:
+                if method == "GET":
+                    response = await client.get(url, headers=headers)
+                elif method == "POST":
+                    response = await client.post(url, headers=headers, data=data)
+                elif method == "PUT":
+                    response = await client.put(url, headers=headers, data=data)
+                elif method == "DELETE":
+                    response = await client.delete(url, headers=headers)
+                else:
+                    raise ValueError("Invalid method")
+        except Exception as e:
+            logger.warning(f"failed to request with NACOS server, uri: {uri}, error: {e}", exc_info=e)
+            return False, {}
+
+        code = response.status_code
+        if code != 200:
+            logger.warning(f"failed to request with NACOS server, uri: {uri}, code: {code}, response: {response.content}")
+            return False, {}
+
+        try:
+            return True, json.loads(response.content.decode("utf-8")).get("data")
+        except Exception as e:
+            logger.warning(f"failed to parse response with NACOS server, uri: {uri}, error: {e}")
+            return False, {}
+
+
+def _parse_tool_params(data, mcp_name, tools) -> dict[str, str]:
+    tool_list = map(
+        lambda tool: {
+            "name": tool.name,
+            "description": tool.description,
+            "inputSchema": tool.inputSchema
+        },
+        tools
+    )
+
+    endpoint_specification = None
+    if data['protocol'] != "stdio":
+        endpoint_specification = {
+            'data': data.get('remoteServerConfig', {}).get('serviceRef'),
+            'type': 'REF'
+        }
+
+    tool_spec = data.get('toolSpec') or {}
+    tool_spec['tools'] = list(tool_list)
+
+    del data['backendEndpoints']
+
+    return {
+        'mcpName': mcp_name,
+        'serverSpecification': json.dumps(data, ensure_ascii=False),
+        'endpointSpecification': json.dumps(endpoint_specification or {}, ensure_ascii=False),
+        'toolSpecification': json.dumps(tool_spec, ensure_ascii=False),
+        'latest':'True'
+    }
+
+def _parse_mcp_detail(mcp_server, config, searching_name):
+    endpoint = config.backend_endpoints[0]
+    http_schema = "https" if endpoint.port == 443 else "http"
+    path = config.remote_server_config.export_path
+    if not path.startswith("/"):
+        path = f"/{path}"
+    url = f"{http_schema}://{endpoint.address}:{endpoint.port}{path}"
+
+    mcp_servers = mcp_server.agentConfig.setdefault("mcpServers", {})
+    dct = {
+        "name": searching_name,
+        "description": '',
+        "url": url
+    }
+
+    mcp_servers[searching_name] = dct
+
