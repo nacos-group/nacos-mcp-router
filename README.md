@@ -1,3 +1,4 @@
+[![Model Context Protocol](https://img.shields.io/badge/Model%20Context%20Protocol-purple)](https://modelcontextprotocol.org)
 # nacos-mcp-router: 一个提供MCP Server推荐、分发、安装及代理功能的MCP Server.
 
 ## 概述
