@@ -1,11 +1,24 @@
 {
   "name": "nacos-mcp-router",
-  "version": "1.0.12",
+  "version": "1.0.15",
   "description": "Nacos MCP Router TypeScript implementation",
   "main": "dist/stdio.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nacos-group/nacos-mcp-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nacos-group/nacos-mcp-router/issues"
+  },
+  "homepage": "https://github.com/nacos-group/nacos-mcp-router#readme",
   "bin": {
     "nacos-mcp-router": "./dist/stdio.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "publishConfig": {
     "access": "public"
   },

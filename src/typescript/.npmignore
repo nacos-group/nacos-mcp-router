@@ -1,0 +1,23 @@
+# 环境变量文件
+.env
+.env.*
+*.env
+
+# 源代码
+src/
+test/
+
+# 开发相关文件
+tsconfig.json
+jest.config.js
+.git/
+.gitignore
+.DS_Store
+
+# 开发依赖
+node_modules/
+
+# 其他
+*.log
+*.test.ts
+*.spec.ts 
