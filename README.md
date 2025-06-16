@@ -185,32 +185,5 @@ docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 }
 ```
 
-#### Windows系统使用
-Node版本切换工具 [https://github.com/nvm-sh/nvm](https://github.com/nvm-sh/nvm)
-```shell
- # 安装nacos-mcp-router 使用Nodejs 20及以上版本
-npm install -g nacos-mcp-router
-
-# 获取全局安装的npm包路径
-npm root -g
-```
-
-```json
-{
-  "mcpServers": {
-    "nacos-mcp-router": {
-      "command": "node",
-      "args": [
-        "${获取全局安装的npm包路径}\\nacos-mcp-router\\dist\\stdio.js"
-      ],
-      "env": {
-        "NACOS_ADDR": "<NACOS-ADDR>, 选填，默认为127.0.0.1:8848",
-        "NACOS_USERNAME": "<NACOS-USERNAME>, 选填，默认为nacos",
-        "NACOS_PASSWORD": "<NACOS-PASSWORD>, 必填"
-      }
-    }
-  }
-}
-```
 ## 许可证
 nacos-mcp-router 使用 Apache 2.0 许可证. 这意味着您可以自由地使用、修改和分发该软件，但需遵守 Apache 2.0 许可证的条款和条件。更多详细信息，请参阅项目仓库中的 LICENSE 文件

@@ -1,0 +1,12 @@
+{
+    "nacos": {
+      "serverAddr": "localhost:8848",
+      "username": "nacos",
+      "password": "uhn5FD0Itp",
+      "namespace": "public",
+      "group": "MCP_GROUP"
+    },
+    "mode": "sse",
+    "port": 3000,
+    "logLevel": "info"
+  }
