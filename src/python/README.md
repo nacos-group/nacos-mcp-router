@@ -154,14 +154,15 @@ If you are doing local development, simply follow the steps:
 
 ## Environment Variable Settings  
 
-| Parameter | Description | Default Value | Required | Remarks |  
-|-----------|-------------|---------------|----------|---------|  
-| NACOS_ADDR | Nacos server address | 127.0.0.1:8848 | No | the Nacos server address, e.g., 192.168.1.1:8848. Note: Include the port. |  
-| NACOS_USERNAME | Nacos username | nacos | No | the Nacos username, e.g., nacos. |  
-| NACOS_PASSWORD | Nacos password | - | Yes | the Nacos password, e.g., nacos. |  
-| TRANSPORT_TYPE | Transport protocol type | stdio | No | transport protocol type. Options: stdio, sse, streamable_http. |  
-| PROXIED_MCP_NAME | Proxied MCP server name | - | No | In proxy mode, specify the MCP server name to be converted. Must be registered in Nacos first. |  
-| MODE | Working mode | router | No | Available options: router, proxy. |
+| Parameter | Description             | Default Value | Required | Remarks                                                                                        |  
+|-----------|-------------------------|---------------|----------|------------------------------------------------------------------------------------------------|  
+| NACOS_ADDR | Nacos server address    | 127.0.0.1:8848 | No       | the Nacos server address, e.g., 192.168.1.1:8848. Note: Include the port.                      |  
+| NACOS_USERNAME | Nacos username          | nacos | No       | the Nacos username, e.g., nacos.                                                               |  
+| NACOS_PASSWORD | Nacos password          | - | Yes      | the Nacos password, e.g., nacos.                                                               |
+|NACOS_NAMESPACE| Nacos Namespace         | public         | No       | Nacos namespace, e.g. public                                                                   |
+| TRANSPORT_TYPE | Transport protocol type | stdio | No       | transport protocol type. Options: stdio, sse, streamable_http.                                 |  
+| PROXIED_MCP_NAME | Proxied MCP server name | - | No       | In proxy mode, specify the MCP server name to be converted. Must be registered in Nacos first. |  
+| MODE | Working mode            | router | No       | Available options: router, proxy.                                                              |
 
 ## License
 

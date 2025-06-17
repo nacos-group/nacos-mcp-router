@@ -659,7 +659,7 @@ wheels = [
 
 [[package]]
 name = "nacos-mcp-router"
-version = "0.1.9"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "chromadb" },

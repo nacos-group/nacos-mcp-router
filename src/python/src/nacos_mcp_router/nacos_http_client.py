@@ -1,6 +1,9 @@
 #-*- coding: utf-8 -*-
-
+import base64
+import hashlib
+import hmac
 import json
+import time
 import urllib.parse
 import httpx
 import asyncio
@@ -23,11 +26,14 @@ _SCHEMA_HTTP = "http"
 _SCHEMA = os.getenv("NACOS_SERVER_SCHEMA", _SCHEMA_HTTP)
 
 class NacosHttpClient:
-    def __init__(self, nacosAddr: str, userName: str, passwd: str, namespaceId: str) -> None:
+    def __init__(self, params: dict[str,str]) -> None:
+        nacosAddr = params["nacosAddr"]
         if not isinstance(nacosAddr, str) or not nacosAddr.strip():
             raise ValueError("nacosAddr must be a non-empty string")
+        userName = params["userName"]
         if not isinstance(userName, str) or not userName.strip():
             raise ValueError("userName must be a non-empty string")
+        passwd = params["password"]
         if not isinstance(passwd, str) or not passwd.strip():
             raise ValueError("passwd must be a non-empty string")
 
@@ -35,7 +41,36 @@ class NacosHttpClient:
         self.userName = userName
         self.passwd = passwd
         self.schema = _SCHEMA
-        self.namespaceId = namespaceId
+        self.namespaceId = params["namespaceId"] if params["namespaceId"] else ""
+        self.ak = params["ak"] if params["ak"] else ""
+        self.sk = params["sk"] if params["sk"] else ""
+
+        if self.ak and not self.sk:
+            raise ValueError("ak and sk are required when using nacos http client")
+        if self.sk and not self.ak:
+            raise ValueError("ak and sk are required when using nacos http client")
+
+        from .auth import StaticCredentialsProvider
+        self.credentials_provider = StaticCredentialsProvider(self.ak, self.sk)
+
+    def __do_sign(self, sign_str, sk):
+        return base64.encodebytes(
+            hmac.new(sk.encode(), sign_str.encode(), digestmod=hashlib.sha1).digest()).decode().strip()
+
+    def _inject_auth_info(self, headers: dict[str, str]) -> None:
+        credentials = self.credentials_provider.get_credentials()
+
+        if not str.strip(credentials.get_access_key_id()) or not str.strip(credentials.get_access_key_secret()):
+            return
+
+        ts = str(int(round(time.time() * 1000)))
+        sign_str = self.namespaceId if self.namespaceId else "public" + "+" + "DEFAULT_GROUP" + "+"+ ts
+
+        headers.update({
+            "Spas-AccessKey": credentials.get_access_key_id(),
+            "timeStamp": ts,
+        })
+        headers["Spas-Signature"] = self.__do_sign(sign_str, credentials.get_access_key_secret())
 
     async def get_mcp_server(self, id: str, name:str) -> McpServer:
         """
@@ -252,6 +287,7 @@ class NacosHttpClient:
                        "charset": "utf-8",
                        "userName": self.userName,
                        "password": self.passwd}
+            self._inject_auth_info(headers)
 
             async with httpx.AsyncClient() as client:
                 if method == "GET":

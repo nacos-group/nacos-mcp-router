@@ -444,10 +444,10 @@ async def init() -> int:
         nacos_user_name = os.getenv("NACOS_USERNAME", "nacos")
         nacos_password = os.getenv("NACOS_PASSWORD", "")
         nacos_namespace = os.getenv("NACOS_NAMESPACE", "")
-        nacos_http_client = NacosHttpClient(nacosAddr=nacos_addr,
-                                            userName=nacos_user_name,
-                                            passwd=nacos_password,
-                                            namespaceId=nacos_namespace)
+        ak = os.getenv("ACCESS_KEY_ID", "")
+        sk = os.getenv("ACCESS_KEY_SECRET","")
+        params = {"nacosAddr":nacos_addr,"userName": nacos_user_name, "password": nacos_password, "namespaceId": nacos_namespace, "ak": ak, "sk": sk}
+        nacos_http_client = NacosHttpClient(params)
         auto_register_tools = os.getenv("AUTO_REGISTER_TOOLS", "true").lower() == "true"
         mode = os.getenv("MODE", MODE_ROUTER)
         proxied_mcp_name = os.getenv("PROXIED_MCP_NAME", "")
