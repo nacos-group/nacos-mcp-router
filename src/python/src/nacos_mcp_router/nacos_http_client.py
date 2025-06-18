@@ -3,12 +3,14 @@ import base64
 import hashlib
 import hmac
 import json
+import random
 import time
 import urllib.parse
 import httpx
 import asyncio
 import os
 from mcp import Tool
+from packaging import version
 
 from .router_types import McpServer
 from .nacos_mcp_server_config import NacosMcpServerConfig
@@ -98,23 +100,24 @@ class NacosHttpClient:
             params['mcpName'] = name
 
         uri = f'/nacos/v3/admin/ai/mcp?' + urllib.parse.urlencode(params)
-   
 
         success, data = await self.request_nacos(uri)
         if not success:
             logger.warning(f"failed to get mcp server, name {name}, id {id}")
-            return  McpServer(name=name, description="", agentConfig={}, id=id)
+            return  McpServer(name=name, description="", agentConfig={}, id=id, version="0.0.0")
 
         data['id'] = id
         config = NacosMcpServerConfig.from_dict(data)
+        config.local_server_config['protocol'] = config.protocol
         mcp_server = McpServer(name=config.name,
                                description=config.description or "",
                                agentConfig=config.local_server_config,
-                               id=id)
+                               id=id,
+                               version=config.version)
             
         mcp_server.mcp_config_detail = config
-
-        if config.protocol == "stdio" or len(config.backend_endpoints) == 0:
+        protocol = config.protocol
+        if protocol == "stdio" or len(config.backend_endpoints) == 0:
             return mcp_server
 
         _parse_mcp_detail(mcp_server, config, name)
@@ -150,7 +153,7 @@ class NacosHttpClient:
             if not m["enabled"]:
                 return None
             name = m["name"]
-            if (m["protocol"] == "mcp-sse" or m["protocol"] == "stdio") :    
+            if (m["protocol"] == "mcp-sse" or m["protocol"] == "stdio") or m["protocol"] == "mcp-streamable" :
                 id = ""
                 if "id" in m and m["id"] is not None:
                     id = m["id"]
@@ -204,7 +207,7 @@ class NacosHttpClient:
         logger.info(f"get mcp server list, total count {len(mcp_servers)}")
         return mcp_servers
 
-    async def update_mcp_tools(self, mcp_name:str, tools: list[Tool], version: str, id: str) -> bool:
+    async def update_mcp_tools(self, mcp_name:str, tools: list[Tool], mcp_version: str, id: str) -> bool:
         """
         Update the tools list for a specified MCP.
 
@@ -234,10 +237,18 @@ class NacosHttpClient:
 
         # get original server config
         success, data = await self.request_nacos(uri)
+        print("update_mcp_tools, data from nacos: " + json.dumps(data, indent=4))
+        if 'version' in data and data['version'] is not None \
+                and version.parse(data['version']) > version.parse(mcp_version) \
+                and 'toolSpec' in data and data['toolSpec'] is not None \
+                and 'tools' in data['toolSpec'] and data['toolSpec']['tools'] is not None \
+                and len(data['toolSpec']['tools']) > 0:
+            return True
+
         if not success:
             logger.warning(f"failed to update mcp tools list, uri {uri}")
             return False
-        data["versionDetail"] = {"version": version}
+        data["versionDetail"] = {"version": mcp_version}
         
         if self.namespaceId != "":
             data["namespaceId"] = self.namespaceId
@@ -251,7 +262,7 @@ class NacosHttpClient:
                                               data=params,
                                               content_type=CONTENT_TYPE_URLENCODED)
 
-        logger.warning(f"Update mcp tools, name: {mcp_name}, result: {success}")
+        logger.info(f"Update mcp tools, name: {mcp_name}, result: {success}")
 
         return success
 
@@ -347,7 +358,9 @@ def _parse_tool_params(data, mcp_name, tools) -> dict[str, str]:
     }
 
 def _parse_mcp_detail(mcp_server, config, searching_name):
-    endpoint = config.backend_endpoints[0]
+    random.seed(42)
+    index = random.randint(0, len(config.backend_endpoints) - 1)
+    endpoint = config.backend_endpoints[index]
     http_schema = "https" if endpoint.port == 443 else "http"
     path = config.remote_server_config.export_path
     if not path.startswith("/"):
@@ -358,7 +371,8 @@ def _parse_mcp_detail(mcp_server, config, searching_name):
     dct = {
         "name": searching_name,
         "description": '',
-        "url": url
+        "url": url,
+        "protocol": mcp_server.agentConfig["protocol"],
     }
 
     mcp_servers[searching_name] = dct

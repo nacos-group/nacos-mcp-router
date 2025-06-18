@@ -65,13 +65,19 @@ class ToolMeta:
 class ToolSpec:
     tools: List[Tool]
     tools_meta: Dict[str, ToolMeta]
+    tools_dict: Dict[str, Tool]
 
     @classmethod
     def from_dict(cls, data: dict) -> "ToolSpec":
-        return cls(
+        tool_spec = cls(
             tools=[Tool.from_dict(t) for t in data.get("tools", [])],
-            tools_meta={k: ToolMeta.from_dict(v) for k, v in data.get("toolsMeta", {}).items()}
+            tools_meta={k: ToolMeta.from_dict(v) for k, v in data.get("toolsMeta", {}).items()},
+            tools_dict={}
         )
+        for tool in tool_spec.tools:
+            tool_spec.tools_dict[tool.name] = tool
+
+        return tool_spec
 
 # ------------------ 主结构 ------------------
 @dataclass
@@ -132,8 +138,8 @@ class NacosMcpServerConfig:
     enabled: bool = True
     capabilities: List[str] = field(default_factory=list)
     backend_endpoints: List[BackendEndpoint] = field(default_factory=list)
-    tool_spec: ToolSpec = field(default_factory=lambda: ToolSpec(tools=[], tools_meta={}))
-
+    tool_spec: ToolSpec = field(default_factory=lambda: ToolSpec(tools=[], tools_meta={}, tools_dict={}))
+    front_protocol: str | None = None
     @classmethod
     def from_dict(cls, data: dict) -> "NacosMcpServerConfig":
         tool_spec_data = data.get("toolSpec")
@@ -142,6 +148,7 @@ class NacosMcpServerConfig:
             return cls(
                 name=data["name"],
                 protocol=data["protocol"],
+                front_protocol=data["frontProtocol"] if "frontProtocol" in data else None,
                 description=data["description"],
                 version=data["version"],
                 remote_server_config=RemoteServerConfig.from_dict(data["remoteServerConfig"]),
@@ -149,7 +156,7 @@ class NacosMcpServerConfig:
                 enabled=data.get("enabled", True),
                 capabilities=data.get("capabilities", []),
                 backend_endpoints=[BackendEndpoint.from_dict(e) for e in data.get("backendEndpoints", [])] if backend_endpoints_data else [],
-                tool_spec=ToolSpec.from_dict(tool_spec_data) if tool_spec_data else ToolSpec(tools=[], tools_meta={}),
+                tool_spec=ToolSpec.from_dict(tool_spec_data) if tool_spec_data else ToolSpec(tools=[], tools_meta={}, tools_dict={}),
                 id=data["id"] if data.get("id") else None
             )
         except Exception as e:

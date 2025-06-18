@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import sys
 import typing
 from typing import Optional
 
@@ -10,27 +11,30 @@ import anyio
 from mcp import types
 from mcp.client.stdio import get_default_environment
 from mcp.server import Server
+from packaging import version
 
 from .constants import TRANSPORT_TYPE_STDIO, MODE_ROUTER, MODE_PROXY
 from .logger import NacosMcpRouteLogger
 from .mcp_manager import McpUpdater
 from .nacos_http_client import NacosHttpClient
 from .router_exceptions import NacosMcpRouterException
-from .router_types import ChromaDb
+from .router_types import ChromaDb, McpServer
 from .router_types import CustomServer
+from importlib.metadata import version
 
+version_number = "nacos-mcp-router:v" + version("nacos-mcp-router")
 router_logger = NacosMcpRouteLogger.get_logger()
 mcp_servers_dict: dict[str, CustomServer] = {}
 
-mcp_updater: Optional[McpUpdater] = None
-nacos_http_client: Optional[NacosHttpClient] = None
+mcp_updater: McpUpdater
+nacos_http_client: NacosHttpClient
 proxied_mcp_name: str = ""
 mode: str = MODE_ROUTER
 proxied_mcp_server_config: dict = {}
 transport_type: str = TRANSPORT_TYPE_STDIO
 auto_register_tools: bool = True
-
-
+proxied_mcp_version: str = ''
+mcp_app: Server
 def router_tools() -> list[types.Tool]:
     return [
         types.Tool(
@@ -96,22 +100,56 @@ async def init_proxied_mcp() -> bool:
 
     mcp_server = CustomServer(name=proxied_mcp_name, config=proxied_mcp_server_config)
     await mcp_server.wait_for_initialization()
-    
+
     if mcp_server.healthy():
         mcp_servers_dict[proxied_mcp_name] = mcp_server
+        init_result = mcp_server.get_initialized_response()
+        version = init_result.serverInfo.version if init_result else "1.0.0"
+        mcp_app.version = version
+
         if auto_register_tools and nacos_http_client is not None:
             tools = await mcp_server.list_tools()
-            init_result = mcp_server.get_initialized_response()
-            version = init_result.serverInfo.version if init_result else "1.0.0"
             await nacos_http_client.update_mcp_tools(proxied_mcp_name, tools, version, "")
         return True
     else:
         return False
 
+async def filter_tools(tools:list[types.Tool], mcp_server_from_registry:McpServer) -> list[typing.Any]:
+    if mcp_server_from_registry is None:
+        return tools
+
+    disenabled_tools = {}
+    tools_meta = mcp_server_from_registry.mcp_config_detail.tool_spec.tools_meta
+    for tool_name in tools_meta:
+        meta = tools_meta[tool_name]
+        if not meta.enabled:
+            disenabled_tools[tool_name] = True
+
+    tool_list = list[typing.Any]()
+    for tool in tools:
+        if tool.name in disenabled_tools:
+            continue
+        dct = {}
+        dct['name'] = tool.name
+        if tool.name in mcp_server_from_registry.mcp_config_detail.tool_spec.tools_dict:
+            dct['description'] = mcp_server_from_registry.mcp_config_detail.tool_spec.tools_dict[tool.name].description
+            dct['inputSchema'] = mcp_server_from_registry.mcp_config_detail.tool_spec.tools_dict[tool.name].input_schema
+        else:
+            dct['description'] = tool.description
+            dct['inputSchema'] = tool.inputSchema
+
+        tool_list.append(dct)
+    return tool_list
+
 
 async def proxied_mcp_tools() -> list[typing.Any]:
     if await init_proxied_mcp():
-        return await mcp_servers_dict[proxied_mcp_name].list_tools()
+        tool_list = await mcp_servers_dict[proxied_mcp_name].list_tools()
+        mcp_server_from_registry = mcp_updater.get_mcp_server_by_name(proxied_mcp_name)
+        if mcp_server_from_registry is not None:
+            result = await filter_tools(tool_list, mcp_server_from_registry)
+            return result
+        return tool_list
     else:
         raise NacosMcpRouterException(msg=f"failed to initialize proxied MCP server {proxied_mcp_name}")
 
@@ -138,9 +176,8 @@ def search_mcp_server(task_description: str, key_words: str) -> str:
         for key_word in keywords:
             mcps = mcp_updater.search_mcp_by_keyword(key_word)
             mcp_servers1.extend(mcps or [])
-
+        router_logger.info("mcp size searched by keywords is " + str(len(mcp_servers1)))
         if len(mcp_servers1) < 5:
-            keywords.append(task_description)
             mcp_servers2 = mcp_updater.getMcpServer(task_description, 5 - len(mcp_servers1))
             mcp_servers1.extend(mcp_servers2 or [])
 
@@ -223,7 +260,7 @@ async def add_mcp_server(mcp_server_name: str) -> str:
                 server_config['env'] = env
                 if 'headers' not in server_config:
                     server_config['headers'] = {}
-            print(f"add mcp server: {mcp_server_name}, config:{mcp_server.agentConfig}")
+            router_logger.info(f"add mcp server: {mcp_server_name}, config:{mcp_server.agentConfig}")
             server = CustomServer(name=mcp_server_name, config=mcp_server.agentConfig)
             await server.wait_for_initialization()
             if server.healthy():
@@ -233,7 +270,8 @@ async def add_mcp_server(mcp_server_name: str) -> str:
 
         tools = await server.list_tools()
         init_result = server.get_initialized_response()
-        version = init_result.serverInfo.version if init_result else "1.0.0"
+        mcp_version = init_result.serverInfo.version if init_result else "1.0.0"
+        router_logger.info(f"add mcp server: {mcp_server_name}, version:{mcp_version}")
 
         tool_list = []
         for tool in tools:
@@ -241,29 +279,35 @@ async def add_mcp_server(mcp_server_name: str) -> str:
                 continue
             dct = {}
             dct['name'] = tool.name
-            dct['description'] = tool.description
-            dct['inputSchema'] = tool.inputSchema
+            if tool.name in mcp_server.mcp_config_detail.tool_spec.tools_dict:
+                dct['description'] = mcp_server.mcp_config_detail.tool_spec.tools_dict[tool.name].description
+                dct['inputSchema'] = mcp_server.mcp_config_detail.tool_spec.tools_dict[tool.name].input_schema
+            else:
+                dct['description'] = tool.description
+                dct['inputSchema'] = tool.inputSchema
+
             tool_list.append(dct)
 
         if nacos_http_client is not None:
-            await nacos_http_client.update_mcp_tools(mcp_server_name, tools, version,
+            await nacos_http_client.update_mcp_tools(mcp_server_name, tools, mcp_version,
                                                      mcp_server.id if mcp_server.id else "")
 
         result = "1. " + mcp_server_name + "安装完成, tool 列表为: " + json.dumps(tool_list, ensure_ascii=False) + "\n2." + mcp_server_name + "的工具需要通过nacos-mcp-router的use_tool工具代理使用"
+        router_logger.info(result)
         return result
     except Exception as e:
         router_logger.warning("failed to install mcp server: " + mcp_server_name, exc_info=e)
         return "failed to install mcp server: " + mcp_server_name
 
-def start_server(app: Server) -> int:
+def start_server() -> int:
     match transport_type:
         case 'stdio':
             from mcp.server.stdio import stdio_server
 
             async def arun():
                 async with stdio_server() as streams:
-                    await app.run(
-                        streams[0], streams[1], app.create_initialization_options()
+                    await mcp_app.run(
+                        streams[0], streams[1], mcp_app.create_initialization_options()
                     )
 
             anyio.run(arun)
@@ -284,8 +328,8 @@ def start_server(app: Server) -> int:
                 async with sse_transport.connect_sse(
                         request.scope, request.receive, request._send
                 ) as streams:
-                    await app.run(
-                        streams[0], streams[1], app.create_initialization_options()
+                    await mcp_app.run(
+                        streams[0], streams[1], mcp_app.create_initialization_options()
                     )
                 return Response()
 
@@ -321,14 +365,10 @@ def start_server(app: Server) -> int:
             from starlette.types import Scope
             from starlette.types import Receive
             from starlette.types import Send
-            import contextlib
-            from collections.abc import AsyncIterator
-            from starlette.routing import Mount
-            from starlette.applications import Starlette
 
             streamable_port = int(os.getenv("PORT", "8000"))
             session_manager = StreamableHTTPSessionManager(
-                app=app,
+                app=mcp_app,
                 event_store=None,
                 json_response=False,
                 stateless=True,
@@ -342,14 +382,13 @@ def start_server(app: Server) -> int:
             from collections.abc import AsyncIterator
 
             sse_transport = SseServerTransport("/messages/")
-            sse_port = int(os.getenv("PORT", "8000"))
 
             async def handle_sse(request):
                 async with sse_transport.connect_sse(
                         request.scope, request.receive, request._send
                 ) as streams:
-                    await app.run(
-                        streams[0], streams[1], app.create_initialization_options()
+                    await mcp_app.run(
+                        streams[0], streams[1], mcp_app.create_initialization_options()
                     )
                 return Response()
             async def handle_streamable_http(
@@ -391,9 +430,7 @@ def start_server(app: Server) -> int:
 
 
 def create_mcp_app() -> Server:
-    app = Server("nacos_mcp_router")
-
-    @app.call_tool()
+    @mcp_app.call_tool()
     async def call_tool(
             name: str, arguments: dict
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
@@ -411,6 +448,7 @@ def create_mcp_app() -> Server:
                     return [types.TextContent(type="text", text=content)]
                 case "add_mcp_server":
                     content = await add_mcp_server(arguments["mcp_server_name"])
+                    router_logger.info(f"add mcp_server result: {content}")
                     return [types.TextContent(type="text", text=content)]
                 case "use_tool":
                     params = json.loads(arguments["params"])
@@ -419,27 +457,28 @@ def create_mcp_app() -> Server:
                 case _:
                     return [types.TextContent(type="text", text="not implemented tool")]
 
-    @app.list_tools()
+    @mcp_app.list_tools()
     async def list_tools() -> list[types.Tool]:
         if mode == MODE_PROXY:
             return await proxied_mcp_tools()
         else:
             return router_tools()
 
-    return app
+    return mcp_app
 
 
 def main() -> int:
     if asyncio.run(init()) != 0:
         return 1
-    app = create_mcp_app()
-    return start_server(app)
+    create_mcp_app()
+    return start_server()
 
 
 async def init() -> int:
-    global mcp_updater, nacos_http_client, mode, proxied_mcp_name, proxied_mcp_server_config, transport_type, auto_register_tools
+    global mcp_app, mcp_updater, nacos_http_client, mode, proxied_mcp_name, proxied_mcp_server_config, transport_type, auto_register_tools, proxied_mcp_version
     
     try:
+        mcp_app = Server("nacos-mcp-router")
         nacos_addr = os.getenv("NACOS_ADDR", "127.0.0.1:8848")
         nacos_user_name = os.getenv("NACOS_USERNAME", "nacos")
         nacos_password = os.getenv("NACOS_PASSWORD", "")
@@ -452,10 +491,16 @@ async def init() -> int:
         mode = os.getenv("MODE", MODE_ROUTER)
         proxied_mcp_name = os.getenv("PROXIED_MCP_NAME", "")
         proxied_mcp_server_config_str = os.getenv("PROXIED_MCP_SERVER_CONFIG", "")
+        update_interval = int(os.getenv("UPDATE_INTERVAL", 60))
+
+        if update_interval < 10:
+            update_interval = 10
+
         if proxied_mcp_server_config_str != "" :
             proxied_mcp_server_config = json.loads(proxied_mcp_server_config_str)
 
         transport_type = os.getenv("TRANSPORT_TYPE", TRANSPORT_TYPE_STDIO)
+
         init_str = (
             f"init server, nacos_addr: {nacos_addr}, "
             f"nacos_user_name: {nacos_user_name}, "
@@ -464,10 +509,9 @@ async def init() -> int:
             f"transport_type: {transport_type}, "
             f"proxied_mcp_name: {proxied_mcp_name}, "
             f"proxied_mcp_server_config: {proxied_mcp_server_config}, "
-            f"auto_register_tools: {auto_register_tools}"
+            f"auto_register_tools: {auto_register_tools}, "
+            f"version: {version_number}"
         )
-        
-        print(init_str)
 
         router_logger.info(init_str)
 
@@ -475,14 +519,17 @@ async def init() -> int:
             raise NacosMcpRouterException("proxied_mcp_name must be set in proxy mode")
 
         if mode == MODE_PROXY and (proxied_mcp_server_config_str == "" or proxied_mcp_server_config_str is None):
-            print(f"proxied_mcp_server_config_str is empty, get mcp server from nacos, proxied_mcp_name: {proxied_mcp_name}")
+            router_logger.info(f"proxied_mcp_server_config_str is empty, get mcp server from nacos, proxied_mcp_name: {proxied_mcp_name}")
             mcp_server = await nacos_http_client.get_mcp_server(id="", name=proxied_mcp_name)
-            print(f"proxied_mcp_server_config: {mcp_server.agent_config()}")
+            router_logger.info(f"proxied_mcp_server_config: {mcp_server.agent_config()}")
             proxied_mcp_server_config = mcp_server.agent_config()
 
         if  mode == MODE_ROUTER:
             chroma_db_service = ChromaDb()
-            mcp_updater = await McpUpdater.create(nacos_http_client, chroma_db_service, 60)
+            mcp_updater = await McpUpdater.create(nacos_http_client, chroma_db_service, update_interval, True)
+        else:
+            mcp_updater = await McpUpdater.create(nacos_http_client, None, update_interval, False)
+
         return 0
     except Exception as e:
         router_logger.error("failed to start", exc_info= e)
