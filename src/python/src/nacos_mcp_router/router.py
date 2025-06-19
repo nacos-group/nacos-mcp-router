@@ -101,7 +101,7 @@ async def init_proxied_mcp() -> bool:
     if mcp_server.healthy():
         mcp_servers_dict[proxied_mcp_name] = mcp_server
         init_result = mcp_server.get_initialized_response()
-        version = init_result.serverInfo.version if init_result else "1.0.0"
+        version = getattr(getattr(init_result, 'serverInfo', None), 'version', "1.0.0")
         mcp_app.version = version
 
         if auto_register_tools and nacos_http_client is not None:
@@ -276,9 +276,10 @@ async def add_mcp_server(mcp_server_name: str) -> str:
                 continue
             dct = {}
             dct['name'] = tool.name
-            if tool.name in mcp_server.mcp_config_detail.tool_spec.tools_dict:
-                dct['description'] = mcp_server.mcp_config_detail.tool_spec.tools_dict[tool.name].description
-                dct['inputSchema'] = mcp_server.mcp_config_detail.tool_spec.tools_dict[tool.name].input_schema
+            tool_info = mcp_server.mcp_config_detail.tool_spec.tools_dict.get(tool.name)
+            if tool_info:
+                dct['description'] = tool_info.description
+                dct['inputSchema'] = tool_info.input_schema
             else:
                 dct['description'] = tool.description
                 dct['inputSchema'] = tool.inputSchema
@@ -290,13 +291,20 @@ async def add_mcp_server(mcp_server_name: str) -> str:
                                                      mcp_server.id if mcp_server.id else "")
 
         result = "1. " + mcp_server_name + "安装完成, tool 列表为: " + json.dumps(tool_list, ensure_ascii=False) + "\n2." + mcp_server_name + "的工具需要通过nacos-mcp-router的use_tool工具代理使用"
-        router_logger.info(result)
         return result
     except Exception as e:
         router_logger.warning("failed to install mcp server: " + mcp_server_name, exc_info=e)
         return "failed to install mcp server: " + mcp_server_name
 
 def start_server() -> int:
+    async def handle_sse(request):
+        async with sse_transport.connect_sse(
+                request.scope, request.receive, request._send
+        ) as streams:
+            await mcp_app.run(
+                streams[0], streams[1], mcp_app.create_initialization_options()
+            )
+        return Response()
     match transport_type:
         case 'stdio':
             from mcp.server.stdio import stdio_server
@@ -319,15 +327,6 @@ def start_server() -> int:
 
             sse_transport = SseServerTransport("/messages/")
             sse_port = int(os.getenv("PORT", "8000"))
-
-            async def handle_sse(request):
-                async with sse_transport.connect_sse(
-                        request.scope, request.receive, request._send
-                ) as streams:
-                    await mcp_app.run(
-                        streams[0], streams[1], mcp_app.create_initialization_options()
-                    )
-                return Response()
 
             @contextlib.asynccontextmanager
             async def sse_lifespan(app: Starlette) -> AsyncIterator[None]:
@@ -379,14 +378,6 @@ def start_server() -> int:
 
             sse_transport = SseServerTransport("/messages/")
 
-            async def handle_sse(request):
-                async with sse_transport.connect_sse(
-                        request.scope, request.receive, request._send
-                ) as streams:
-                    await mcp_app.run(
-                        streams[0], streams[1], mcp_app.create_initialization_options()
-                    )
-                return Response()
             async def handle_streamable_http(
                     scope: Scope, receive: Receive, send: Send
             ) -> None:
@@ -444,7 +435,6 @@ def create_mcp_app() -> Server:
                     return [types.TextContent(type="text", text=content)]
                 case "add_mcp_server":
                     content = await add_mcp_server(arguments["mcp_server_name"])
-                    router_logger.info(f"add mcp_server result: {content}")
                     return [types.TextContent(type="text", text=content)]
                 case "use_tool":
                     params = json.loads(arguments["params"])

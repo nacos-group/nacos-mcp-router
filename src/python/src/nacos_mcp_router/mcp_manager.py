@@ -52,7 +52,7 @@ class McpUpdater:
 
     all_ids_in_chromadb = self.chromaDbService.get_all_ids()
     if all_ids_in_chromadb is None:
-      return list[str]()
+      return []
 
     deleted_id = []
     for id in all_ids_in_chromadb:
