@@ -238,7 +238,7 @@ class NacosHttpClient:
         # get original server config
         success, data = await self.request_nacos(uri)
         if 'version' in data and data['version'] is not None \
-                and version.parse(data['version']) > version.parse(mcp_version) \
+                and isinstance(data['version'], str) and version.parse(data['version']) > version.parse(mcp_version) \
                 and 'toolSpec' in data and data['toolSpec'] is not None \
                 and 'tools' in data['toolSpec'] and data['toolSpec']['tools'] is not None \
                 and len(data['toolSpec']['tools']) > 0:
@@ -357,9 +357,7 @@ def _parse_tool_params(data, mcp_name, tools) -> dict[str, str]:
     }
 
 def _parse_mcp_detail(mcp_server, config, searching_name):
-    random.seed(42)
-    index = random.randint(0, len(config.backend_endpoints) - 1)
-    endpoint = config.backend_endpoints[index]
+    endpoint = random.choice(config.backend_endpoints)
     http_schema = "https" if endpoint.port == 443 else "http"
     path = config.remote_server_config.export_path
     if not path.startswith("/"):

@@ -3,15 +3,13 @@
 import asyncio
 import json
 import os
-import sys
 import typing
-from typing import Optional
+from importlib.metadata import version as get_version
 
 import anyio
 from mcp import types
 from mcp.client.stdio import get_default_environment
 from mcp.server import Server
-from packaging import version
 
 from .constants import TRANSPORT_TYPE_STDIO, MODE_ROUTER, MODE_PROXY
 from .logger import NacosMcpRouteLogger
@@ -20,9 +18,8 @@ from .nacos_http_client import NacosHttpClient
 from .router_exceptions import NacosMcpRouterException
 from .router_types import ChromaDb, McpServer
 from .router_types import CustomServer
-from importlib.metadata import version
 
-version_number = "nacos-mcp-router:v" + version("nacos-mcp-router")
+version_number = f"nacos-mcp-router:v{get_version('nacos-mcp-router')}"
 router_logger = NacosMcpRouteLogger.get_logger()
 mcp_servers_dict: dict[str, CustomServer] = {}
 
@@ -270,7 +267,7 @@ async def add_mcp_server(mcp_server_name: str) -> str:
 
         tools = await server.list_tools()
         init_result = server.get_initialized_response()
-        mcp_version = init_result.serverInfo.version if init_result else "1.0.0"
+        mcp_version = init_result.serverInfo.version if init_result and hasattr(init_result, 'serverInfo') else "1.0.0"
         router_logger.info(f"add mcp server: {mcp_server_name}, version:{mcp_version}")
 
         tool_list = []
@@ -316,7 +313,6 @@ def start_server() -> int:
         case 'sse':
             from mcp.server.sse import SseServerTransport
             from starlette.applications import Starlette
-            from starlette.responses import Response
             from starlette.routing import Mount, Route
             import contextlib
             from collections.abc import AsyncIterator

@@ -148,7 +148,7 @@ class NacosMcpServerConfig:
             return cls(
                 name=data["name"],
                 protocol=data["protocol"],
-                front_protocol=data["frontProtocol"] if "frontProtocol" in data else None,
+                front_protocol=data.get("frontProtocol"),
                 description=data["description"],
                 version=data["version"],
                 remote_server_config=RemoteServerConfig.from_dict(data["remoteServerConfig"]),
