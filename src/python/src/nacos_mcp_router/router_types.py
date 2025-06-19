@@ -189,7 +189,6 @@ class ChromaDb:
     self._collectionId = "nacos_mcp_router-collection"
     self._collection = self.dbClient.get_or_create_collection(name=self._collectionId)
     self.preIds = []
-    print("create chroma db collection1 ")
 
   def update_data(self, ids: OneOrMany[ID],
         metadatas: Optional[OneOrMany[Metadata]] = None,

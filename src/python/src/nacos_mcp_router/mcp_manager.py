@@ -124,7 +124,6 @@ class McpUpdater:
       return self._cache.values()
 
   def getMcpServer(self, query: str, count: int) -> list[McpServer]:
-    print("enter getMcpServer")
     if not self.enable_vector_db or self.chromaDbService is None:
       return []
 

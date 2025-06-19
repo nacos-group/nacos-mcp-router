@@ -237,7 +237,6 @@ class NacosHttpClient:
 
         # get original server config
         success, data = await self.request_nacos(uri)
-        print("update_mcp_tools, data from nacos: " + json.dumps(data, indent=4))
         if 'version' in data and data['version'] is not None \
                 and version.parse(data['version']) > version.parse(mcp_version) \
                 and 'toolSpec' in data and data['toolSpec'] is not None \
