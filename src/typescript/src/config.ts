@@ -6,4 +6,5 @@ export const config = {
     username: process.env.NACOS_USERNAME || "nacos",
     password: process.env.NACOS_PASSWORD || "nacos_password",
   },
+  logLevel: 'info'
 };

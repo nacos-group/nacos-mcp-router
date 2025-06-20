@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { RouterConfig } from './router';
-import { Router } from './router';
-import { config } from './config';
-import { logger } from './logger';
+import { RouterConfig } from '../src/router';
+import { Router } from '../src/router';
+import { config } from '../src/config';
+import { logger } from '../src/logger';
 const app = express();
 app.use(express.json());
 
@@ -11,7 +11,7 @@ app.use(express.json());
 const transports: Record<string, SSEServerTransport> = {};
 
 // SSE endpoint for establishing the stream
-app.get('/mcp', async (req: Request, res: Response) => {
+app.get('/sse', async (req: Request, res: Response) => {
   try {
     // Create a new SSE transport for the client
     // The endpoint for POST messages is '/messages'

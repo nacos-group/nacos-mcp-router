@@ -1,3 +1,4 @@
+[![Model Context Protocol](https://img.shields.io/badge/Model%20Context%20Protocol-purple)](https://modelcontextprotocol.org)
 
 # nacos-mcp-router: A MCP server that provides  functionalities such as search, installation, proxy, and more.
 [![Model Context Protocol](https://img.shields.io/badge/Model%20Context%20Protocol-purple)](https://modelcontextprotocol.org)

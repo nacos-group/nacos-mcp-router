@@ -1,7 +1,7 @@
 import { logger } from "./logger";
 import { NacosHttpClient } from "./nacos_http_client";
 import { VectorDB, CustomServer, NacosMcpServer } from "./router_types";
-import { md5 } from "./md5";
+import { md5 } from "./util";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 
 export class McpManager {

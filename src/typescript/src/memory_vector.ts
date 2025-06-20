@@ -1,5 +1,4 @@
 import { HierarchicalNSW } from 'hnswlib-node';
-// import { pipeline } from '@xenova/transformers'; // 改为动态导入
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -10,6 +9,8 @@ type Metadata = Record<string, any>;
 let pipeline: any;
 async function getPipeline() {
   if (!pipeline) {
+    const { env } = await import("@xenova/transformers");
+    (env as any).remoteHost = "https://hf-mirror.com";
     pipeline = (await import('@xenova/transformers')).pipeline;
   }
   return pipeline;
@@ -33,7 +34,7 @@ export class MemoryVectorDB {
     indexFile?: string,
     metadataFile?: string,
     modelName?: string,
-    clearOnStart?: boolean
+    clearOnStart?: boolean // 是否在启动时清除索引和元数据（之前持久化过的数据）
   }) {
     this.numDimensions = options.numDimensions;
     this.maxElements = options.maxElements || 10000;

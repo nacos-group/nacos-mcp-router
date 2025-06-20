@@ -17,11 +17,7 @@ export interface RouterConfig {
     username: string;
     password: string;
   };
-  mcp: {
-    host: string;
-    port: number;
-    authToken?: string;
-  };
+  logLevel: string;
 }
 
 interface ServiceInfo {
@@ -34,7 +30,7 @@ export class Router {
   private mcpManager: McpManager | undefined;
   private vectorDB: VectorDB | undefined;
   private mcpServer: McpServer | undefined;
-
+  private isRegisteredTools: boolean = false;
   constructor(config: RouterConfig) {
     const {serverAddr, username, password} = config.nacos;
     this.nacosClient = new NacosHttpClient(serverAddr, username, password);
@@ -153,12 +149,6 @@ ${content}
 
   public async start(replaceTransport?: Transport) {
     try {
-      // const modelName = "all-MiniLM-L6-v2";
-      // const defaultEF = new DefaultEmbeddingFunction({ model: modelName });
-      // console.log(`defaultEF: ${defaultEF}`);
-
-      const { env } = await import("@xenova/transformers");
-      (env as any).remoteHost = "https://hf-mirror.com";
       if (!this.vectorDB) {
         this.vectorDB = new VectorDB();
         await this.vectorDB.start();
@@ -181,7 +171,10 @@ ${content}
       }
 
       logger.info(`registerMcpTools`);
-      this.registerMcpTools();
+      if (!this.isRegisteredTools) {
+        await this.registerMcpTools();
+        this.isRegisteredTools = true;
+      }
       if (replaceTransport) {
         this.mcpServer!.connect(replaceTransport);
       } else {
