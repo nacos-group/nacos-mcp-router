@@ -10,13 +10,62 @@
 
 [Nacos](https://nacos.io) is an easy-to-use platform designed for dynamic service discovery and configuration and service management. It helps you to build cloud native applications and microservices platform easily.
 
-This MCP(Model Context Protocol) Server provides tools to search, install, proxy other MCP servers.
+This MCP(Model Context Protocol) Server provides tools to search, install, proxy other MCP servers, with advanced search capabilities including vector similarity search and multi-provider result aggregation.
 
 Nacos-MCP-Router has two working modes:
-
+ 
 Router mode: The default mode, which recommends, distributes, installs, and proxies the functions of other MCP Servers through the MCP Server, helping users more conveniently utilize MCP Server services.
 
 Proxy mode: Specified by the environment variable MODE=proxy, it can convert SSE and stdio protocol MCP Servers into streamable HTTP protocol MCP Servers through simple configuration.
+
+## Search Features
+
+Nacos-MCP-Router provides powerful search capabilities through multiple providers:
+
+### Search Providers
+
+1. **Nacos Provider**
+   - Searches MCP servers using Nacos service discovery
+   - Supports keyword matching and vector similarity search
+   - Integrated with the local Nacos instance
+
+2. **Compass Provider**
+   - Connects to a COMPASS API endpoint for enhanced search
+   - Supports semantic search and relevance scoring
+   - Configurable API endpoint (default: https://registry.mcphub.io)
+
+### Search Configuration
+
+Configure search behavior using environment variables:
+
+```bash
+# YOUR COMPASS API endpoint (for Outer Provider called Compass Provider)
+COMPASS_API_BASE=https://registry.mcphub.io
+
+# Minimum similarity score for results (0.0 to 1.0)
+SEARCH_MIN_SIMILARITY=0.5
+
+# Maximum number of results to return
+SEARCH_RESULT_LIMIT=10
+```
+
+### Search API
+
+The search functionality is available through the MCP interface:
+
+```typescript
+// Search for MCP servers
+const results = await searchMcpServer(
+  "Find MCP servers for natural language processing",
+  ["nlp", "language"]
+);
+```
+
+Results include:
+- Server name and description
+- Provider information
+- Relevance score
+- Additional metadata
 
 ## Quick Start
 ### Python
@@ -136,6 +185,9 @@ docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 | NACOS_ADDR | Nacos server address                                       | 127.0.0.1:8848 | No       | the Nacos server address, e.g., 192.168.1.1:8848. Note: Include the port.                     |  
 | NACOS_USERNAME | Nacos username                                             | nacos | No       | the Nacos username, e.g., nacos.                                                              |  
 | NACOS_PASSWORD | Nacos password                                             | - | Yes      | the Nacos password, e.g., nacos.                                                              |
+| COMPASS_API_BASE | COMPASS API endpoint for enhanced search | https://registry.mcphub.io | No | Override the default COMPASS API endpoint |
+| SEARCH_MIN_SIMILARITY | Minimum similarity score (0.0-1.0) | 0.5 | No | Filter search results by minimum similarity score |
+| SEARCH_RESULT_LIMIT | Maximum number of results to return | 10 | No | Limit the number of search results |
 |NACOS_NAMESPACE| Nacos Namespace                                            | public         | No       | Nacos namespace, e.g. public                                                                  |
 | TRANSPORT_TYPE | Transport protocol type                                    | stdio | No       | transport protocol type. Options: stdio, sse, streamable_http.                                |  
 | PROXIED_MCP_NAME | Proxied MCP server name                                    | - | No       | In proxy mode, specify the MCP server name to be converted. Must be registered in Nacos first. |  

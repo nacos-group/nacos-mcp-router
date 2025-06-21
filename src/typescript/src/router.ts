@@ -6,8 +6,12 @@ import { logger } from "./logger";
 import { z } from "zod";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { VectorDB, NacosMcpServer } from "./router_types";
+import { SearchParams, SearchProvider } from "./types/search";
+import { NacosMcpProvider } from "./services/search/NacosMcpProvider";
+import { SearchService, COMPASS_API_BASE } from "./services/search/SearchService";
 // import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { CompassSearchProvider } from "./services/search/CompassSearchProvider";
 
 const MCP_SERVER_NAME = "nacos-mcp-router";
 
@@ -33,6 +37,7 @@ export class Router {
   private nacosClient: NacosHttpClient;
   private mcpManager: McpManager | undefined;
   private vectorDB: VectorDB | undefined;
+  private searchService: SearchService | undefined;
   private mcpServer: McpServer | undefined;
 
   constructor(config: RouterConfig) {
@@ -53,21 +58,7 @@ export class Router {
         }).max(2) },
         async ({ taskDescription, keyWords }) => {
           try {
-            const mcpServers1: NacosMcpServer[] = [];
-            
-            // 根据关键字搜索MCP服务器
-            for (const keyWord of keyWords) {
-              const mcps = await this.mcpManager!.searchMcpByKeyword(keyWord);
-              if (mcps.length > 0) {
-                mcpServers1.push(...mcps);
-              }
-            }
-
-            // 如果找到的服务器数量少于5个，使用任务描述进行从向量库补充搜索
-            if (mcpServers1.length < 5) {
-              const additionalServers = await this.mcpManager!.getMcpServer(taskDescription, 5 - mcpServers1.length);
-              mcpServers1.push(...additionalServers);
-            }
+            const mcpServers1: NacosMcpServer[] = await this.searchMcpServer(taskDescription,keyWords);
 
             // 构建结果
             const result: Record<string, { name: string; description: string }> = {};
@@ -151,6 +142,53 @@ ${content}
     }
   }
 
+  /**
+   * Search for MCP servers using the configured search service
+   * @param taskDescription Description of the task to search for
+   * @param keyWords Additional keywords to refine the search
+   * @returns Array of matching NacosMcpServer instances
+   */
+  public async searchMcpServer(taskDescription: string, keyWords: [string, ...string[]]): Promise<NacosMcpServer[]> {
+    if (!this.searchService) {
+      throw new McpError(ErrorCode.InternalError, "Search service not initialized");
+    }
+    
+    try {
+      const params = {
+        taskDescription,
+        keywords: keyWords,
+        // Include any additional search parameters as needed
+      };
+      
+      // Use the search service to get results from all providers
+      const results = await this.searchService.search(params);
+      
+      // Ensure we return results in the expected format with proper method bindings
+      return results.map(server => {
+        // Create a new object with all properties from the server
+        const result = { ...server } as NacosMcpServer;
+        
+        // Add methods with proper 'this' binding
+        result.getName = function() { return this.name; };
+        result.getDescription = function() { return this.description || ''; };
+        result.getAgentConfig = function() { return this.agentConfig || {}; };
+        result.toDict = function() {
+          return {
+            name: this.name,
+            description: this.description || '',
+            mcpConfigDetail: this.mcpConfigDetail,
+            agentConfig: this.agentConfig || {}
+          };
+        };
+        
+        return result;
+      });
+    } catch (error) {
+      logger.error('Error in searchMcpServer:', error);
+      throw new McpError(ErrorCode.InternalError, `Search failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   public async start(replaceTransport?: Transport) {
     try {
       // const modelName = "all-MiniLM-L6-v2";
@@ -171,7 +209,14 @@ ${content}
       }
       logger.info(`nacosClient is ready: ${isReady}`);
       if (!this.mcpManager) {
+        // 初始化核心服务
         this.mcpManager = new McpManager(this.nacosClient, this.vectorDB, 5000);
+        
+        // Initialize search service with providers
+        const nacosProvider = new NacosMcpProvider(this.mcpManager);
+        const compassProvider = new CompassSearchProvider(COMPASS_API_BASE);
+        
+        this.searchService = new SearchService([nacosProvider, compassProvider]);
       }
       if (!this.mcpServer) {
         this.mcpServer = new McpServer({

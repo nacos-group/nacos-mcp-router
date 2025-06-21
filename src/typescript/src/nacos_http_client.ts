@@ -159,13 +159,10 @@ export class NacosHttpClient {
 
         logger.info(`update mcp tools, params ${JSON.stringify(params)}`);
 
-        const updateUrl = `http://${this.nacosAddr}/nacos/v3/admin/ai/mcp?`;
-        const updateResponse = await axios.put(updateUrl, params, {
+        const updateResponse = await this.client.put('/nacos/v3/admin/ai/mcp', params, {
+          // Override only what differs from default headers
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'charset': 'utf-8',
-            'userName': this.userName,
-            'password': this.passwd
+            'Content-Type': 'application/x-www-form-urlencoded'
           }
         });
 
