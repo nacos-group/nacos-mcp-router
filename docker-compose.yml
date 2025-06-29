@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  nacos-mcp-router:
+    build:
+      context: .
+      dockerfile: src/python/Dockerfile
+    container_name: nacos-mcp-router
+    ports:
+      - "8080:8080"   # Nacos Console
+      - "8848:8848"   # Nacos Server
+      - "9848:9848"   # Nacos gRPC
+      - "8000:8000"   # Router HTTP (if using sse/streamable_http)
+    environment:
+      # Nacos配置
+      - MODE=standalone
+      - NACOS_AUTH_TOKEN=VGhpc0lzTXlTZWNyZXRLZXlGb3JOYWNvc01DUFJvdXRlcjEyMzQ1Njc4OTA=
+      - NACOS_AUTH_IDENTITY_KEY=nacos-server-identity
+      - NACOS_AUTH_IDENTITY_VALUE=nacos-server-value
+      - NACOS_AUTH_ENABLE=true
+      - SPRING_SECURITY_ENABLED=true
+      - NACOS_PASSWORD=nacos123
+      
+      # Router配置
+      - NACOS_ADDR=127.0.0.1:8848
+      - NACOS_USERNAME=nacos
+      - TRANSPORT_TYPE=stdio
+      - ROUTER_MODE=router
+      
+      # 可选配置
+      - COMPASS_API_BASE=https://registry.mcphub.io
+      - SEARCH_MIN_SIMILARITY=0.5
+      - SEARCH_RESULT_LIMIT=10
+    volumes:
+      # 可选：持久化Nacos数据
+      - nacos-data:/opt/nacos/data
+      - nacos-logs:/opt/nacos/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  # 可选：使用最新版本的镜像
+  nacos-mcp-router-latest:
+    build:
+      context: .
+      dockerfile: src/python/Dockerfile.latest
+    container_name: nacos-mcp-router-latest
+    profiles: ["latest"]  # 使用 docker-compose --profile latest up 启动
+    ports:
+      - "8081:8080"   # Nacos Console (避免端口冲突)
+      - "8849:8848"   # Nacos Server
+      - "9849:9848"   # Nacos gRPC
+      - "8001:8000"   # Router HTTP
+    environment:
+      - MODE=standalone
+      - NACOS_PASSWORD=nacos123
+      - TRANSPORT_TYPE=stdio
+      - ROUTER_MODE=router
+    volumes:
+      - nacos-data-latest:/opt/nacos/data
+      - nacos-logs-latest:/opt/nacos/logs
+    restart: unless-stopped
+
+volumes:
+  nacos-data:
+    driver: local
+  nacos-logs:
+    driver: local
+  nacos-data-latest:
+    driver: local
+  nacos-logs-latest:
+    driver: local 

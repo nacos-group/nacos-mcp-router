@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nacos-mcp-router.fullname" . }}
+  labels:
+    {{- include "nacos-mcp-router.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "nacos-mcp-router.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "nacos-mcp-router.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "nacos-mcp-router.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        # Nacos container
+        - name: nacos
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.nacos.repository }}:{{ .Values.image.nacos.tag }}"
+          imagePullPolicy: {{ .Values.image.nacos.pullPolicy }}
+          env:
+            - name: MODE
+              value: {{ .Values.nacos.mode | quote }}
+            - name: NACOS_AUTH_TOKEN
+              value: {{ .Values.nacos.auth.token | quote }}
+            - name: NACOS_AUTH_IDENTITY_KEY
+              value: {{ .Values.nacos.auth.identityKey | quote }}
+            - name: NACOS_AUTH_IDENTITY_VALUE
+              value: {{ .Values.nacos.auth.identityValue | quote }}
+            - name: NACOS_AUTH_ENABLE
+              value: "true"
+            - name: SPRING_SECURITY_ENABLED
+              value: "true"
+            - name: NACOS_PASSWORD
+              value: {{ .Values.nacos.adminPassword | quote }}
+          ports:
+            - name: console
+              containerPort: 8080
+              protocol: TCP
+            - name: server
+              containerPort: 8848
+              protocol: TCP
+            - name: grpc
+              containerPort: 9848
+              protocol: TCP
+          {{- if .Values.healthCheck.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /nacos/actuator/health
+              port: 8848
+            initialDelaySeconds: {{ .Values.healthCheck.nacos.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.nacos.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.nacos.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.nacos.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /nacos/actuator/health
+              port: 8848
+            initialDelaySeconds: {{ .Values.healthCheck.nacos.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.nacos.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.nacos.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.nacos.failureThreshold }}
+          {{- end }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: nacos-data
+              mountPath: /home/nacos/data
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        
+        # Router container
+        - name: router
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.router.repository }}:{{ .Values.image.router.tag }}"
+          imagePullPolicy: {{ .Values.image.router.pullPolicy }}
+          command:
+            - /bin/bash
+            - /scripts/init-and-start.sh
+          env:
+            # Router environment variables
+            - name: NACOS_ADDR
+              value: {{ .Values.router.nacos.addr | quote }}
+            - name: NACOS_USERNAME
+              value: {{ .Values.router.nacos.username | quote }}
+            - name: NACOS_PASSWORD
+              value: {{ include "nacos-mcp-router.routerPassword" . | quote }}
+            - name: MODE
+              value: {{ .Values.router.mode | quote }}
+            - name: TRANSPORT_TYPE
+              value: {{ .Values.router.transportType | quote }}
+            - name: PORT
+              value: {{ .Values.router.port | quote }}
+            - name: COMPASS_API_BASE
+              value: {{ .Values.router.search.compassApiBase | quote }}
+            - name: SEARCH_MIN_SIMILARITY
+              value: {{ .Values.router.search.minSimilarity | quote }}
+            - name: SEARCH_RESULT_LIMIT
+              value: {{ .Values.router.search.resultLimit | quote }}
+            {{- if eq .Values.router.mode "proxy" }}
+            - name: PROXIED_MCP_NAME
+              value: {{ .Values.router.proxy.mcpName | quote }}
+            {{- end }}
+          {{- if or (eq .Values.router.transportType "sse") (eq .Values.router.transportType "streamable_http") }}
+          ports:
+            - name: router
+              containerPort: {{ .Values.router.port }}
+              protocol: TCP
+          {{- end }}
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ include "nacos-mcp-router.fullname" . }}-config
+            defaultMode: 0755
+        {{- if .Values.persistence.enabled }}
+        - name: nacos-data
+          persistentVolumeClaim:
+            claimName: {{ include "nacos-mcp-router.fullname" . }}-pvc
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }} 

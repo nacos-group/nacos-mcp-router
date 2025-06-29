@@ -1,0 +1,17 @@
+apiVersion: v2
+name: nacos-mcp-router
+description: A Helm chart for deploying Nacos and nacos-mcp-router in the same pod
+type: application
+version: 0.1.0
+appVersion: "0.2.0"
+keywords:
+  - nacos
+  - mcp
+  - router
+  - microservices
+home: https://github.com/nacos-group/nacos-mcp-router
+sources:
+  - https://github.com/nacos-group/nacos-mcp-router
+maintainers:
+  - name: nacos-team
+    email: nacos-dev@googlegroups.com 

@@ -1,0 +1,44 @@
+# 基本配置示例
+# 使用方法: helm install my-release ./helm/nacos-mcp-router -f examples/basic-values.yaml
+
+# 基本配置
+replicaCount: 1
+
+# Nacos配置
+nacos:
+  mode: standalone
+  adminPassword: "nacos123"  # 请在生产环境中修改此密码
+  auth:
+    # 请在生产环境中生成新的token
+    token: "VGhpc0lzTXlTZWNyZXRLZXlGb3JOYWNvc01DUFJvdXRlcjEyMzQ1Njc4OTA="
+    identityKey: "nacos-server-identity"
+    identityValue: "nacos-server-value"
+
+# Router配置
+router:
+  mode: "router"  # 或者 "proxy"
+  transportType: "streamable_http"  # stdio, sse, streamable_http
+  nacos:
+    addr: "127.0.0.1:8848"
+    username: "nacos"
+    password: ""  # 如果为空，将使用 nacos.adminPassword
+
+# 服务配置
+service:
+  type: ClusterIP
+  nacosConsolePort: 8080
+  nacosServerPort: 8848
+  nacosGrpcPort: 9848
+
+# 资源限制
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# 健康检查
+healthCheck:
+  enabled: true 

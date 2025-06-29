@@ -1,0 +1,150 @@
+# Default values for nacos-mcp-router.
+# This is a YAML-formatted file.
+# Declare variables to be substituted into your templates.
+
+replicaCount: 1
+
+image:
+  nacos:
+    repository: nacos/nacos-server
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  router:
+    repository: nacos/nacos-mcp-router
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  # Nacos ports
+  nacosConsolePort: 8080
+  nacosServerPort: 8848
+  nacosGrpcPort: 9848
+  # Router port
+  routerPort: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: nacos-mcp-router.local
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8080
+  tls: []
+  #  - secretName: nacos-mcp-router-tls
+  #    hosts:
+  #      - nacos-mcp-router.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This is also why resource limits are disabled by default.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Nacos configuration
+nacos:
+  # Nacos mode: standalone or cluster
+  mode: standalone
+  # Nacos authentication
+  auth:
+    # Base64 encoded secret token (must be > 32 characters)
+    token: "VGhpc0lzTXlTZWNyZXRLZXlGb3JOYWNvc01DUFJvdXRlcjEyMzQ1Njc4OTA="
+    # Identity key for server-to-server communication
+    identityKey: "nacos-server-identity"
+    # Identity value for server-to-server communication  
+    identityValue: "nacos-server-value"
+  # Initial admin password
+  adminPassword: "nacos123"
+
+# Router configuration
+router:
+  # Working mode: router or proxy
+  mode: "router"
+  # Transport type: stdio, sse, streamable_http
+  transportType: "stdio"
+  # Nacos connection settings
+  nacos:
+    # Will be set automatically to localhost since they're in the same pod
+    addr: "127.0.0.1:8848"
+    username: "nacos"
+    # Will use the same password as nacos.adminPassword
+    password: ""
+  # Search configuration
+  search:
+    compassApiBase: "https://registry.mcphub.io"
+    minSimilarity: 0.5
+    resultLimit: 10
+  # Optional: Proxy mode settings
+  proxy:
+    mcpName: ""
+  # Service port (for sse or streamable_http modes)
+  port: 8000
+
+# Persistence
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+
+# Health checks
+healthCheck:
+  enabled: true
+  nacos:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  router:
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3 

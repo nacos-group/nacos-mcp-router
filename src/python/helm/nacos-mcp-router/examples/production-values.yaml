@@ -1,0 +1,138 @@
+# 生产环境配置示例
+# 使用方法: helm install my-release ./helm/nacos-mcp-router -f examples/production-values.yaml
+
+# 基本配置
+replicaCount: 1  # Nacos standalone模式只能运行1个副本
+
+# 镜像配置
+image:
+  nacos:
+    repository: nacos/nacos-server
+    tag: "v2.3.2"  # 使用稳定版本
+    pullPolicy: IfNotPresent
+  router:
+    repository: nacos/nacos-mcp-router
+    tag: "latest"
+    pullPolicy: Always
+
+# Nacos配置
+nacos:
+  mode: standalone
+  adminPassword: "YourSecurePasswordHere"  # 必须修改！
+  auth:
+    # 生产环境必须生成新的Base64编码token (>32字符)
+    token: "WW91ck5ld1NlY3VyZVRva2VuRm9yUHJvZHVjdGlvbkVudmlyb25tZW50MTIzNDU2Nzg5MA=="
+    identityKey: "prod-nacos-identity-key"
+    identityValue: "prod-nacos-identity-value-12345"
+
+# Router配置
+router:
+  mode: "router"
+  transportType: "streamable_http"  # 生产环境推荐使用HTTP
+  nacos:
+    addr: "127.0.0.1:8848"
+    username: "nacos"
+    password: "YourSecurePasswordHere"  # 与nacos.adminPassword保持一致
+  search:
+    compassApiBase: "https://registry.mcphub.io"
+    minSimilarity: 0.6  # 提高相似度阈值
+    resultLimit: 20
+  port: 8000
+
+# 服务配置
+service:
+  type: LoadBalancer  # 或者使用NodePort
+  nacosConsolePort: 8080
+  nacosServerPort: 8848
+  nacosGrpcPort: 9848
+  routerPort: 8000
+
+# Ingress配置
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: nacos.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8080
+  tls:
+    - secretName: nacos-tls
+      hosts:
+        - nacos.yourdomain.com
+
+# 持久化存储
+persistence:
+  enabled: true
+  storageClass: "fast-ssd"  # 根据你的集群修改
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+# 资源配置
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+# 自动扩缩容（注意：Nacos standalone模式不支持多副本）
+autoscaling:
+  enabled: false
+
+# 健康检查
+healthCheck:
+  enabled: true
+  nacos:
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 3
+  router:
+    initialDelaySeconds: 90
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 3
+
+# 节点选择器（可选）
+nodeSelector:
+  kubernetes.io/os: linux
+  # node-type: compute
+
+# 容忍度（可选）
+tolerations: []
+
+# 亲和性（可选）
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - nacos-mcp-router
+        topologyKey: kubernetes.io/hostname
+
+# Pod安全上下文
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# 容器安全上下文
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false  # Nacos需要写入权限
+  runAsNonRoot: true
+  runAsUser: 1000 

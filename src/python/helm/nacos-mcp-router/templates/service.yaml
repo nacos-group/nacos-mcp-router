@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nacos-mcp-router.fullname" . }}
+  labels:
+    {{- include "nacos-mcp-router.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.nacosConsolePort }}
+      targetPort: console
+      protocol: TCP
+      name: nacos-console
+    - port: {{ .Values.service.nacosServerPort }}
+      targetPort: server
+      protocol: TCP
+      name: nacos-server
+    - port: {{ .Values.service.nacosGrpcPort }}
+      targetPort: grpc
+      protocol: TCP
+      name: nacos-grpc
+    {{- if or (eq .Values.router.transportType "sse") (eq .Values.router.transportType "streamable_http") }}
+    - port: {{ .Values.service.routerPort }}
+      targetPort: router
+      protocol: TCP
+      name: router
+    {{- end }}
+  selector:
+    {{- include "nacos-mcp-router.selectorLabels" . | nindent 4 }} 

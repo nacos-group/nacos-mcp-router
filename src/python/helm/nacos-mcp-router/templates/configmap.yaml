@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nacos-mcp-router.fullname" . }}-config
+  labels:
+    {{- include "nacos-mcp-router.labels" . | nindent 4 }}
+data:
+  init-and-start.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Waiting for Nacos to be ready..."
+    
+    # Wait for Nacos to be ready
+    max_attempts=60
+    attempt=0
+    while [ $attempt -lt $max_attempts ]; do
+      if curl -f -s http://localhost:8848/nacos/actuator/health >/dev/null 2>&1; then
+        echo "Nacos is ready!"
+        break
+      fi
+      echo "Attempt $((attempt+1))/$max_attempts: Nacos not ready yet, waiting..."
+      sleep 5
+      attempt=$((attempt+1))
+    done
+    
+    if [ $attempt -eq $max_attempts ]; then
+      echo "Nacos failed to start within expected time"
+      exit 1
+    fi
+    
+    echo "Starting nacos-mcp-router..."
+    
+    # Start the router
+    exec python -m nacos_mcp_router
+  
+  wait-for-nacos.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Checking if Nacos is ready..."
+    max_attempts=30
+    attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+      if curl -f -s http://localhost:8848/nacos/actuator/health >/dev/null 2>&1; then
+        echo "Nacos health check passed!"
+        exit 0
+      fi
+      echo "Attempt $((attempt+1))/$max_attempts: Nacos not ready, waiting..."
+      sleep 2
+      attempt=$((attempt+1))
+    done
+    
+    echo "Nacos health check failed after $max_attempts attempts"
+    exit 1 

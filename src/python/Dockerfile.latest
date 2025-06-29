@@ -1,7 +1,6 @@
 FROM python:3.12-slim
 
 # 设置环境变量
-ENV NACOS_VERSION=2.3.2
 ENV NACOS_HOME=/opt/nacos
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV PATH=$PATH:$JAVA_HOME/bin:$NACOS_HOME/bin
@@ -12,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     unzip \
+    jq \
     openjdk-8-jdk \
     procps \
     && apt-get clean \
@@ -22,16 +22,19 @@ WORKDIR /app
 # 复制Python代码
 COPY src/python .
 
-# 下载并安装Nacos Server
-RUN echo "Downloading Nacos Server..." && \
-    NACOS_DOWNLOAD_URL="https://github.com/alibaba/nacos/releases/download/${NACOS_VERSION}/nacos-server-${NACOS_VERSION}.tar.gz" && \
+# 下载最新版本的Nacos Server
+RUN echo "Fetching latest Nacos release..." && \
+    LATEST_RELEASE=$(curl -s https://api.github.com/repos/alibaba/nacos/releases/latest | jq -r '.tag_name') && \
+    echo "Latest Nacos version: $LATEST_RELEASE" && \
+    NACOS_DOWNLOAD_URL="https://github.com/alibaba/nacos/releases/download/${LATEST_RELEASE}/nacos-server-${LATEST_RELEASE}.tar.gz" && \
     echo "Download URL: $NACOS_DOWNLOAD_URL" && \
     wget -O /tmp/nacos-server.tar.gz "$NACOS_DOWNLOAD_URL" && \
     mkdir -p $NACOS_HOME && \
     tar -xzf /tmp/nacos-server.tar.gz -C /tmp && \
     mv /tmp/nacos/* $NACOS_HOME/ && \
     rm -rf /tmp/nacos-server.tar.gz /tmp/nacos && \
-    chmod +x $NACOS_HOME/bin/*.sh
+    chmod +x $NACOS_HOME/bin/*.sh && \
+    echo $LATEST_RELEASE > $NACOS_HOME/VERSION
 
 # 创建Nacos数据目录
 RUN mkdir -p $NACOS_HOME/data $NACOS_HOME/logs
@@ -49,6 +52,9 @@ RUN cat > /app/start.sh << 'EOF'
 #!/bin/bash
 set -e
 
+# 获取Nacos版本
+NACOS_VERSION=$(cat $NACOS_HOME/VERSION 2>/dev/null || echo "unknown")
+
 # 默认环境变量
 export MODE=${MODE:-standalone}
 export NACOS_AUTH_TOKEN=${NACOS_AUTH_TOKEN:-VGhpc0lzTXlTZWNyZXRLZXlGb3JOYWNvc01DUFJvdXRlcjEyMzQ1Njc4OTA=}
@@ -65,22 +71,27 @@ export TRANSPORT_TYPE=${TRANSPORT_TYPE:-stdio}
 export ROUTER_MODE=${ROUTER_MODE:-router}
 
 echo "========================================"
-echo "Starting Nacos MCP Router Container"
+echo "🚀 Starting Nacos MCP Router Container"
 echo "========================================"
-echo "Nacos Version: $NACOS_VERSION"
-echo "Nacos Mode: $MODE"
-echo "Router Mode: $ROUTER_MODE"
-echo "Transport Type: $TRANSPORT_TYPE"
+echo "📦 Nacos Version: $NACOS_VERSION"
+echo "🔧 Nacos Mode: $MODE"
+echo "🔀 Router Mode: $ROUTER_MODE"
+echo "📡 Transport Type: $TRANSPORT_TYPE"
 echo "========================================"
 
 # 启动Nacos Server
-echo "Starting Nacos Server..."
+echo "🔄 Starting Nacos Server..."
 cd $NACOS_HOME
+
+# 确保日志目录存在
+mkdir -p logs
+
+# 启动Nacos
 nohup sh bin/startup.sh -m $MODE > logs/nacos-startup.log 2>&1 &
 NACOS_PID=$!
 
-echo "Nacos started with PID: $NACOS_PID"
-echo "Waiting for Nacos to be ready..."
+echo "📝 Nacos started with PID: $NACOS_PID"
+echo "⏳ Waiting for Nacos to be ready..."
 
 # 等待Nacos启动完成
 max_attempts=60
@@ -91,29 +102,59 @@ while [ $attempt -lt $max_attempts ]; do
         break
     fi
     echo "⏳ Attempt $((attempt+1))/$max_attempts: Nacos not ready yet, waiting..."
+    
+    # 每10次尝试输出一次日志片段
+    if [ $((attempt % 10)) -eq 0 ] && [ $attempt -gt 0 ]; then
+        echo "📋 Recent Nacos log:"
+        tail -5 logs/nacos-startup.log 2>/dev/null || echo "No log available yet"
+    fi
+    
     sleep 5
     attempt=$((attempt+1))
 done
 
 if [ $attempt -eq $max_attempts ]; then
     echo "❌ Nacos failed to start within expected time"
-    echo "=== Nacos startup log ==="
-    cat logs/nacos-startup.log
+    echo "=== 📋 Nacos startup log ==="
+    cat logs/nacos-startup.log 2>/dev/null || echo "No log file found"
     echo "========================="
+    
+    # 检查Java进程
+    echo "=== 🔍 Process status ==="
+    ps aux | grep java || echo "No Java processes found"
+    echo "========================="
+    
     exit 1
 fi
+
+# 验证Nacos服务
+echo "🔍 Verifying Nacos services..."
+curl -s http://localhost:8848/nacos/actuator/health | jq . 2>/dev/null || echo "Health check response received"
 
 # 显示Nacos信息
 echo "========================================"
 echo "✅ Nacos Server is ready!"
-echo "Console: http://localhost:8848/nacos"
-echo "Username: nacos"
-echo "Password: $NACOS_PASSWORD"
+echo "🌐 Console: http://localhost:8848/nacos"
+echo "👤 Username: nacos"
+echo "🔑 Password: $NACOS_PASSWORD"
 echo "========================================"
 
 # 启动Router
-echo "Starting nacos-mcp-router..."
+echo "🔄 Starting nacos-mcp-router..."
 cd /app
+
+# 最后检查一次Nacos状态
+if ! curl -f -s http://localhost:8848/nacos/actuator/health >/dev/null 2>&1; then
+    echo "❌ Nacos health check failed before starting router"
+    exit 1
+fi
+
+echo "🚀 Starting Router with config:"
+echo "   NACOS_ADDR: $NACOS_ADDR"
+echo "   NACOS_USERNAME: $NACOS_USERNAME"
+echo "   TRANSPORT_TYPE: $TRANSPORT_TYPE"
+echo "   MODE: $ROUTER_MODE"
+
 exec python -m nacos_mcp_router
 EOF
 
@@ -124,8 +165,11 @@ RUN chmod +x /app/start.sh
 EXPOSE 8080 8848 9848 8000
 
 # 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:8848/nacos/actuator/health || exit 1
 
+# 设置工作目录
+WORKDIR /app
+
 # 启动服务
-CMD ["/app/start.sh"]
+CMD ["/app/start.sh"] 
