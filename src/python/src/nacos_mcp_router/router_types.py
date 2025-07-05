@@ -20,7 +20,7 @@ from mcp.client.streamable_http import streamablehttp_client
 
 
 def _stdio_transport_context(config: dict[str, Any]):
-  server_params = StdioServerParameters(command=config['command'], args=config['args'], env=config['env'])
+  server_params = StdioServerParameters(command=config['command'], args=config['args'] if 'args' in config else [], env=config['env'] if 'env' in config else {})
   return stdio_client(server_params)
 
 def _sse_transport_context(config: dict[str, Any]):
@@ -39,6 +39,7 @@ class CustomServer:
     self.exit_stack: AsyncExitStack = AsyncExitStack()
     self._initialized_event = asyncio.Event()
     self._shutdown_event = asyncio.Event()
+    self._initialized: bool = False  # 初始化状态标记
     if 'protocol' in config['mcpServers'][name] and  "mcp-sse" == config['mcpServers'][name]['protocol']:
       self._transport_context_factory = _sse_transport_context
       self._protocol = 'mcp-sse'
@@ -50,6 +51,7 @@ class CustomServer:
       self._protocol = 'stdio'
 
     self._server_task = asyncio.create_task(self._server_lifespan_cycle())
+
 
 
   async def _server_lifespan_cycle(self):
@@ -85,13 +87,18 @@ class CustomServer:
             await self.wait_for_shutdown_request()
     except Exception as e:
       NacosMcpRouteLogger.get_logger().warning("failed to init mcp server " + self.name + ", config: " + str(self.config), exc_info=e)
+      self._initialized = False
       self._initialized_event.set()
       self._shutdown_event.set()
   def get_initialized_response(self) -> mcp.types.InitializeResult:
     return self.session_initialized_response
 
-  def healthy(self) -> bool:
-    return self.session is not None and self._initialized
+  async def healthy(self) -> bool:
+    """更新healthy方法，增加更详细的检查"""
+    return (self.session is not None and 
+            self._initialized and 
+            not self._shutdown_event.is_set()
+            and not await self.is_session_disconnected())
 
   async def wait_for_initialization(self):
     await self._initialized_event.wait()
@@ -152,6 +159,79 @@ class CustomServer:
       except Exception as e:
         logging.error(f"Error during cleanup of server {self.name}: {e}")
 
+  async def is_session_disconnected(self, timeout: float = 5.0) -> bool:
+    """
+    检查session是否断开连接
+    
+    Args:
+        timeout: 检测超时时间（秒）
+        
+    Returns:
+        bool: True表示连接断开，False表示连接正常
+    """
+    # 基础检查：session对象是否存在
+    if not self.session:
+      NacosMcpRouteLogger.get_logger().info(f"Server {self.name}: session object is None")
+      return True
+    
+    # 检查是否已初始化
+    if not self._initialized:
+      NacosMcpRouteLogger.get_logger().info(f"Server {self.name}: not initialized")
+      return True
+    
+    # 检查是否请求关闭
+    if self._shutdown_event.is_set():
+      NacosMcpRouteLogger.get_logger().info(f"Server {self.name}: shutdown requested")
+      return True
+    
+    try:
+      # 尝试执行一个轻量级操作来测试连接
+      NacosMcpRouteLogger.get_logger().info(f"Server {self.name}: testing connection health")
+      return await self._test_connection_health(timeout)
+    except Exception as e:
+      NacosMcpRouteLogger.get_logger().warning(f"Server {self.name}: connection test failed: {e}")
+      return True
+
+  async def _test_connection_health(self, timeout: float) -> bool:
+    import anyio
+    """
+    测试连接健康状态
+    
+    Args:
+        timeout: 超时时间
+        
+    Returns:
+        bool: True表示连接断开，False表示连接正常
+    """
+    try:
+      # 使用asyncio.wait_for设置超时
+      async with asyncio.timeout(timeout):
+        if self.session is None:
+          return True
+        # 尝试调用一个简单的MCP操作
+        await self.session.list_tools()
+        # 更新最后活动时间
+        import time
+        self._last_activity_time = time.time()
+        return False  # 连接正常
+        
+    except (asyncio.TimeoutError, mcp.McpError, anyio.ClosedResourceError):
+      NacosMcpRouteLogger.get_logger().warning(f"Server {self.name}: connection test timeout after {timeout}s")
+      return True
+    except (ConnectionError, BrokenPipeError, OSError) as e:
+      NacosMcpRouteLogger.get_logger().warning(f"Server {self.name}: connection error: {e}")
+      return True
+    except Exception as e:
+      # 对于其他异常，可能是协议错误或服务器内部错误
+      # 这里可以根据具体的异常类型来判断是否是连接问题
+      error_msg = str(e).lower()
+      if any(keyword in error_msg for keyword in ['connection', 'broken', 'closed', 'reset', 'timeout']):
+        NacosMcpRouteLogger.get_logger().warning(f"Server {self.name}: connection-related error: {e}")
+        return True
+      else:
+        # 其他错误可能不是连接问题，连接可能仍然正常
+        NacosMcpRouteLogger.get_logger().error(f"Server {self.name}: non-connection error during health check", exc_info=e)
+        return False
 class McpServer:
   name: str
   description: str

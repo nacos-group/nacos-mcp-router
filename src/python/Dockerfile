@@ -1,6 +1,7 @@
 FROM python:3.12-slim
 # 安装系统依赖
 RUN apt-get update && apt-get install -y build-essential curl nodejs npm && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN pip install uv
 
 WORKDIR /app
 

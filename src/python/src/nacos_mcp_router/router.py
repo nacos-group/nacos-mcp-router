@@ -98,7 +98,7 @@ async def init_proxied_mcp() -> bool:
     mcp_server = CustomServer(name=proxied_mcp_name, config=proxied_mcp_server_config)
     await mcp_server.wait_for_initialization()
 
-    if mcp_server.healthy():
+    if await mcp_server.healthy():
         mcp_servers_dict[proxied_mcp_name] = mcp_server
         init_result = mcp_server.get_initialized_response()
         version = getattr(getattr(init_result, 'serverInfo', None), 'version', "1.0.0")
@@ -202,22 +202,17 @@ def search_mcp_server(task_description: str, key_words: str) -> str:
 
 async def use_tool(mcp_server_name: str, mcp_tool_name: str, params: dict) -> str:
     try:
-        if mcp_server_name not in mcp_servers_dict:
+        if mcp_server_name not in mcp_servers_dict or mcp_servers_dict[mcp_server_name] is None :
             router_logger.warning(f"mcp server {mcp_server_name} not found, "
                                   f"use search_mcp_server to get mcp servers")
             return "mcp server not found, use search_mcp_server to get mcp servers"
 
         mcp_server = mcp_servers_dict[mcp_server_name]
-        if mcp_server.healthy():
-            response = await mcp_server.execute_tool(mcp_tool_name, params)
-        else:
-            del mcp_servers_dict[mcp_server_name]
-            return "mcp server is not healthy, use search_mcp_server to get mcp servers"
+        response = await mcp_server.execute_tool(mcp_tool_name, params)        
         return str(response.content)
     except Exception as e:
         router_logger.warning("failed to use tool: " + mcp_tool_name, exc_info=e)
-        return "failed to use tool: " + mcp_tool_name
-
+        return "failed to use tool: " + mcp_tool_name + ", please use add_mcp_server to install mcp server"
 
 async def add_mcp_server(mcp_server_name: str) -> str:
     """
@@ -241,7 +236,7 @@ async def add_mcp_server(mcp_server_name: str) -> str:
             if not meta.enabled:
                 disenabled_tools[tool_name] = True
 
-        if mcp_server_name not in mcp_servers_dict:
+        if mcp_server_name not in mcp_servers_dict or mcp_servers_dict[mcp_server_name] is None or not await mcp_servers_dict[mcp_server_name].healthy():
             env = get_default_environment()
             if mcp_server.agentConfig is None:
                 mcp_server.agentConfig = {}
@@ -260,9 +255,12 @@ async def add_mcp_server(mcp_server_name: str) -> str:
             router_logger.info(f"add mcp server: {mcp_server_name}, config:{mcp_server.agentConfig}")
             server = CustomServer(name=mcp_server_name, config=mcp_server.agentConfig)
             await server.wait_for_initialization()
-            if server.healthy():
+            if await server.healthy():
                 mcp_servers_dict[mcp_server_name] = server
-
+        
+        if mcp_server_name not in mcp_servers_dict:
+            return "failed to install mcp server: " + mcp_server_name
+    
         server = mcp_servers_dict[mcp_server_name]
 
         tools = await server.list_tools()
@@ -297,14 +295,7 @@ async def add_mcp_server(mcp_server_name: str) -> str:
         return "failed to install mcp server: " + mcp_server_name
 
 def start_server() -> int:
-    async def handle_sse(request):
-        async with sse_transport.connect_sse(
-                request.scope, request.receive, request._send
-        ) as streams:
-            await mcp_app.run(
-                streams[0], streams[1], mcp_app.create_initialization_options()
-            )
-        return Response()
+    
     match transport_type:
         case 'stdio':
             from mcp.server.stdio import stdio_server
@@ -324,10 +315,18 @@ def start_server() -> int:
             from starlette.routing import Mount, Route
             import contextlib
             from collections.abc import AsyncIterator
-
+            from starlette.responses import Response
             sse_transport = SseServerTransport("/messages/")
             sse_port = int(os.getenv("PORT", "8000"))
 
+            async def handle_sse(request):
+                async with sse_transport.connect_sse(
+                    request.scope, request.receive, request._send
+                ) as streams:
+                    await mcp_app.run(
+                    streams[0], streams[1], mcp_app.create_initialization_options()
+                    )
+                return Response()
             @contextlib.asynccontextmanager
             async def sse_lifespan(app: Starlette) -> AsyncIterator[None]:
                 """Context manager for session manager."""
@@ -383,7 +382,14 @@ def start_server() -> int:
             ) -> None:
                 await session_manager.handle_request(scope, receive, send)
 
-
+            async def handle_sse1(request):
+                async with sse_transport.connect_sse(
+                    request.scope, request.receive, request._send
+                ) as streams:
+                    await mcp_app.run(
+                        streams[0], streams[1], mcp_app.create_initialization_options()
+                    )
+                return Response()
             @contextlib.asynccontextmanager
             async def lifespan(app: Starlette) -> AsyncIterator[None]:
                 """Context manager for session manager."""
@@ -403,7 +409,7 @@ def start_server() -> int:
                 debug=True,
                 routes=[
                     Mount("/mcp", app=handle_streamable_http),
-                    Route("/sse", endpoint=handle_sse, methods=["GET"]),
+                    Route("/sse", endpoint=handle_sse1, methods=["GET"]),
                     Mount("/messages/", app=sse_transport.handle_post_message),
                 ],
                 lifespan=lifespan,
@@ -472,7 +478,7 @@ async def init() -> int:
         ak = os.getenv("ACCESS_KEY_ID", "")
         sk = os.getenv("ACCESS_KEY_SECRET","")
         params = {"nacosAddr":nacos_addr,"userName": nacos_user_name, "password": nacos_password, "namespaceId": nacos_namespace, "ak": ak, "sk": sk}
-        nacos_http_client = NacosHttpClient(params)
+        
         auto_register_tools = os.getenv("AUTO_REGISTER_TOOLS", "true").lower() == "true"
         mode = os.getenv("MODE", MODE_ROUTER)
         proxied_mcp_name = os.getenv("PROXIED_MCP_NAME", "")
@@ -487,6 +493,8 @@ async def init() -> int:
 
         transport_type = os.getenv("TRANSPORT_TYPE", TRANSPORT_TYPE_STDIO)
 
+        nacos_http_client = NacosHttpClient(params)
+        
         init_str = (
             f"init server, nacos_addr: {nacos_addr}, "
             f"nacos_user_name: {nacos_user_name}, "
