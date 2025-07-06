@@ -35,7 +35,7 @@ class McpUpdater:
     self._cache = dict[str, McpServer]()
     self._chromaDbId = f"nacos_mcp_router_collection"
     self.enable_vector_db = enable_vector_db
-    self.lock = asyncio.Lock() 
+    self.lock = threading.Lock()
     self.mode = mode
     self.proxy_mcp_name = proxy_mcp_name
     self.enable_auto_refresh = enable_auto_refresh
@@ -124,7 +124,7 @@ class McpUpdater:
           ids.append(sname)
           if self.enable_vector_db:
             docs.append(des)
-      async with self.lock:
+      with self.lock:
         self._cache = cache
 
       if not ids:
@@ -158,19 +158,19 @@ class McpUpdater:
 
       md5_str = get_md5(des)
 
-      async with self.lock:
+      with self.lock:
         self._cache = cache
     except Exception as e:
       logger.warning("exception while updating mcp server: ", exc_info=e)
 
   async def _get_from_cache(self, id: str) -> Optional[McpServer]:
     """从缓存中获取 MCP 服务器"""
-    async with self.lock:
+    with self.lock:
       return self._cache.get(id)
 
   async def _cache_values(self) -> List[McpServer]:
     """获取缓存中的所有值"""
-    async with self.lock:
+    with self.lock:
       return list(self._cache.values())
 
   async def getMcpServer(self, query: str, count: int) -> List[McpServer]:
