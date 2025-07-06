@@ -158,7 +158,7 @@ docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 | MODE | 工作模式          | router  | 否 | 可选的值：router、proxy                         |
 | PORT | 服务端口          | 8000| 否| 协议类型为sse或streamable时使用                    |
 |ACCESS_KEY_ID | Aliyun ram access key id| - | 否 | |
-|ACCESS_KEY_SECRET | Aliyun ram access key secret | - | 否 |
+|ACCESS_KEY_SECRET | Aliyun ram access key secret | - | 否 | |
 
 
 ## 常见问题
