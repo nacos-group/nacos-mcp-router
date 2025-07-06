@@ -30,15 +30,9 @@ _SCHEMA = os.getenv("NACOS_SERVER_SCHEMA", _SCHEMA_HTTP)
 class NacosHttpClient:
     def __init__(self, params: dict[str,str]) -> None:
         nacosAddr = params["nacosAddr"]
-        if not isinstance(nacosAddr, str) or not nacosAddr.strip():
-            raise ValueError("nacosAddr must be a non-empty string")
         userName = params["userName"]
-        if not isinstance(userName, str) or not userName.strip():
-            raise ValueError("userName must be a non-empty string")
         passwd = params["password"]
-        if not isinstance(passwd, str) or not passwd.strip():
-            raise ValueError("passwd must be a non-empty string")
-
+    
         self.nacosAddr = nacosAddr
         self.userName = userName
         self.passwd = passwd
@@ -121,7 +115,6 @@ class NacosHttpClient:
             return mcp_server
 
         _parse_mcp_detail(mcp_server, config, name)
-
         return mcp_server
 
     async def get_mcp_servers_by_page(self, page_no: int, page_size: int):

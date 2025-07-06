@@ -163,6 +163,8 @@ If you are doing local development, simply follow the steps:
 | TRANSPORT_TYPE | Transport protocol type | stdio | No       | transport protocol type. Options: stdio, sse, streamable_http.                                 |  
 | PROXIED_MCP_NAME | Proxied MCP server name | - | No       | In proxy mode, specify the MCP server name to be converted. Must be registered in Nacos first. |  
 | MODE | Working mode            | router | No       | Available options: router, proxy.                                                              |
+|ACCESS_KEY_ID | Aliyun ram access key id| - | No | |
+|ACCESS_KEY_SECRET | Aliyun ram access key secret | - | No |
 
 ## License
 

@@ -1,7 +1,9 @@
 FROM python:3.12-slim
 # 安装系统依赖
-RUN apt-get update && apt-get install -y build-essential curl nodejs npm && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y build-essential curl && apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN pip install uv
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+RUN apt-get install -y nodejs
 
 WORKDIR /app
 

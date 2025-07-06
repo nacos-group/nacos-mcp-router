@@ -109,7 +109,7 @@ class CustomServer:
   async def wait_for_shutdown_request(self):
     await self._shutdown_event.wait()
 
-  async def list_tools(self) -> list[Any]:
+  async def list_tools(self) -> list[mcp.types.Tool]:
     if not self.session:
       raise RuntimeError(f"Server {self.name} is not initialized")
 
@@ -239,7 +239,6 @@ class McpServer:
   session: ClientSession
   mcp_config_detail: NacosMcpServerConfig
   agentConfig: dict[str, Any]
-  mcp_config_detail: NacosMcpServerConfig
   version: str
   def __init__(self, name: str, description: str, agentConfig: dict, id: str, version: str):
     self.name = name
