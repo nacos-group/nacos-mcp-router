@@ -17,7 +17,9 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from .logger import NacosMcpRouteLogger
 from .nacos_mcp_server_config import NacosMcpServerConfig
 from mcp.client.streamable_http import streamablehttp_client
-
+from .mcp_transport import McpTransport
+from .sse_transport import McpSseTransport
+from .streamable_http_transport import McpStreamableHttpTransport
 
 def _stdio_transport_context(config: dict[str, Any]):
   server_params = StdioServerParameters(command=config['command'], args=config['args'] if 'args' in config else [], env=config['env'] if 'env' in config else {})
@@ -39,13 +41,16 @@ class CustomServer:
     self.exit_stack: AsyncExitStack = AsyncExitStack()
     self._initialized_event = asyncio.Event()
     self._shutdown_event = asyncio.Event()
-    self._initialized: bool = False  # 初始化状态标记
+    self._initialized: bool = False
+    self._mcp_transport: McpTransport | None = None
     if 'protocol' in config['mcpServers'][name] and  "mcp-sse" == config['mcpServers'][name]['protocol']:
-      self._transport_context_factory = _sse_transport_context
+      # self._transport_context_factory = _sse_transport_context
       self._protocol = 'mcp-sse'
+      self._mcp_transport = McpSseTransport(config['mcpServers'][name]['url'], config['mcpServers'][name]['headers'])
     elif 'protocol' in config['mcpServers'][name] and "mcp-streamable" == config['mcpServers'][name]['protocol']:
-      self._transport_context_factory = _streamable_http_transport_context
+      # self._transport_context_factory = _streamable_http_transport_context
       self._protocol = 'mcp-streamable'
+      self._mcp_transport = McpStreamableHttpTransport(config['mcpServers'][name]['url'], config['mcpServers'][name]['headers'])
     else:
       self._transport_context_factory = _stdio_transport_context
       self._protocol = 'stdio'
@@ -61,23 +66,7 @@ class CustomServer:
         mcp_servers = self.config["mcpServers"]
         for key, value in mcp_servers.items():
           server_config = value
-      if self._protocol == 'mcp-streamable':
-        async with _streamable_http_transport_context(server_config) as (read, write, _):
-          async with ClientSession(read, write) as session:
-            self.session_initialized_response = await session.initialize()
-            self.session = session
-            self._initialized = True
-            self._initialized_event.set()
-            await self.wait_for_shutdown_request()
-      elif self._protocol == 'mcp-sse':
-        async with _sse_transport_context(server_config) as (read, write):
-          async with ClientSession(read, write) as session:
-            self.session_initialized_response = await session.initialize()
-            self.session = session
-            self._initialized = True
-            self._initialized_event.set()
-            await self.wait_for_shutdown_request()
-      else:
+      if self._protocol == 'stdio':
         async with _stdio_transport_context(server_config) as (read, write):
           async with ClientSession(read, write) as session:
             self.session_initialized_response = await session.initialize()
@@ -90,11 +79,19 @@ class CustomServer:
       self._initialized = False
       self._initialized_event.set()
       self._shutdown_event.set()
-  def get_initialized_response(self) -> mcp.types.InitializeResult:
-    return self.session_initialized_response
+  async def get_initialized_response(self, client_headers: dict[str, str] = {}) -> mcp.types.InitializeResult:
+    if self._protocol == 'stdio':
+      return self.session_initialized_response
+    else:
+      if self._mcp_transport is None:
+        raise RuntimeError(f"Server {self.name} not initialized")
+      return await self._mcp_transport.handle_initialize(client_headers)
 
   async def healthy(self) -> bool:
     """更新healthy方法，增加更详细的检查"""
+    if self._protocol == 'mcp-streamable' or self._protocol == 'mcp-sse':
+      return True
+    
     return (self.session is not None and 
             self._initialized and 
             not self._shutdown_event.is_set()
@@ -110,12 +107,29 @@ class CustomServer:
     await self._shutdown_event.wait()
 
   async def list_tools(self) -> list[mcp.types.Tool]:
-    if not self.session:
-      raise RuntimeError(f"Server {self.name} is not initialized")
+    return await self.list_tools_with_headers(client_headers={})
 
-    tools_response = await self.session.list_tools()
+  async def list_tools_with_headers(self, client_headers: dict[str, str] = {}) -> list[mcp.types.Tool]:
+    if self._protocol == 'mcp-streamable' or self._protocol == 'mcp-sse':
+      if self._mcp_transport is None:
+        raise RuntimeError(f"Server {self.name} not initialized")
+      tools_response = await self._mcp_transport.handle_list_tools(client_headers)
+      return tools_response.tools
+    else:
+      if not self.session:
+        raise RuntimeError(f"Server {self.name} not initialized")
+      tools_response = await self.session.list_tools()
+      return tools_response.tools
 
-    return tools_response.tools
+  async def call_tool(self, tool_name: str, arguments: dict[str, Any], client_headers: dict[str, str] = {}) -> Any:
+    if self._protocol == 'mcp-streamable' or self._protocol == 'mcp-sse':
+      if self._mcp_transport is None:
+        raise RuntimeError(f"Server {self.name} not initialized")
+      return await self._mcp_transport.handle_tool_call(arguments, client_headers, tool_name)
+    else:
+      if not self.session:
+        raise RuntimeError(f"Server {self.name} not initialized")
+      return await self.session.call_tool(tool_name, arguments)
 
   async def execute_tool(
           self,
@@ -123,24 +137,24 @@ class CustomServer:
           arguments: dict[str, Any],
           retries: int = 2,
           delay: float = 1.0,
+          client_headers: dict[str, str] = {}
   ) -> Any:
-    if not self.session:
-      raise RuntimeError(f"Server {self.name} not initialized")
 
     attempt = 0
     while attempt < retries:
       try:
-        result = await self.session.call_tool(tool_name, arguments)
-
+        result = await self.call_tool(tool_name, arguments, client_headers)
         return result
 
       except Exception as e:
         attempt += 1
         if attempt < retries:
           await asyncio.sleep(delay)
-          await self.session.initialize()
+          if self._protocol == 'stdio':
+            if self.session is not None:
+              await self.session.initialize()
           try:
-            result = await self.session.call_tool(tool_name, arguments)
+            result = await self.call_tool(tool_name, arguments, client_headers)
             return result
           except Exception as e:
             raise e
