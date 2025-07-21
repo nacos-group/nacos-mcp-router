@@ -36,18 +36,18 @@ def router_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name="search_mcp_server",
-            description="执行任务前首先使用本工具。根据任务描述及关键字搜索mcp server, 制定完成任务的步骤。",
+            description="执行任务前首先使用本工具。根据任务描述及关键字搜索mcp server, 制定完成任务的步骤。注意：任务描述及关键字需要同时包含中文和英文。",
             inputSchema={
                 "type": "object",
                 "required": ["task_description", "key_words"],
                 "properties": {
                     "task_description": {
                         "type": "string",
-                        "description": "用户任务描述 ",
+                        "description": "用户中文和英文任务描述，中英文描述各占单独一行。如果任务描述只包含中文，请同时输入英文描述，反之亦然。",
                     },
                     "key_words": {
                         "type": "string",
-                        "description": "用户任务关键字，可以为多个，英文逗号分隔，最多为2个"
+                        "description": "用户任务关键字，可以为多个，最多为4个，包含中英文关键字，英文逗号分隔"
                     }
                 },
             },
@@ -105,11 +105,13 @@ async def init_proxied_mcp() -> bool:
         proxied_mcp_server_config = mcp_server.agent_config()
 
     mcp_server = CustomServer(name=proxied_mcp_name, config=proxied_mcp_server_config)
-    await mcp_server.wait_for_initialization()
+    
+    if mcp_server._protocol == 'stdio':
+        await mcp_server.wait_for_initialization()
 
     if await mcp_server.healthy():
         mcp_servers_dict[proxied_mcp_name] = mcp_server
-        init_result = mcp_server.get_initialized_response()
+        init_result = await mcp_server.get_initialized_response(client_headers={})
         version = getattr(getattr(init_result, 'serverInfo', None), 'version', "1.0.0")
         mcp_app.version = version
 
@@ -155,10 +157,10 @@ async def filter_tools(tools:list[types.Tool], mcp_server_from_registry:McpServe
     return tool_list
 
 
-async def proxied_mcp_tools() -> list[types.Tool]:
+async def proxied_mcp_tools(client_headers: dict[str, str] = {}) -> list[types.Tool]:
     if await init_proxied_mcp():
         try:
-            tool_list = await mcp_servers_dict[proxied_mcp_name].list_tools()
+            tool_list = await mcp_servers_dict[proxied_mcp_name].list_tools_with_headers(client_headers=client_headers)
             mcp_server_from_registry = await mcp_updater.get_mcp_server_by_name(proxied_mcp_name)
             if mcp_server_from_registry is not None:
                 result = await filter_tools(tool_list, mcp_server_from_registry)
@@ -220,7 +222,7 @@ async def search_mcp_server(task_description: str, key_words: str) -> str:
         return f"Error: {msg}"
 
 
-async def use_tool(mcp_server_name: str, mcp_tool_name: str, params: dict) -> str:
+async def use_tool(mcp_server_name: str, mcp_tool_name: str, params: dict, client_headers: dict[str, str] = {}) -> str:
     try:
         if mcp_server_name not in mcp_servers_dict or mcp_servers_dict[mcp_server_name] is None :
             router_logger.warning(f"mcp server {mcp_server_name} not found, "
@@ -228,13 +230,13 @@ async def use_tool(mcp_server_name: str, mcp_tool_name: str, params: dict) -> st
             return "mcp server not found, use search_mcp_server to get mcp servers"
 
         mcp_server = mcp_servers_dict[mcp_server_name]
-        response = await mcp_server.execute_tool(mcp_tool_name, params)        
+        response = await mcp_server.execute_tool(mcp_tool_name, params, client_headers=client_headers)        
         return str(response.content)
     except Exception as e:
         router_logger.warning("failed to use tool: " + mcp_tool_name, exc_info=e)
         return "failed to use tool: " + mcp_tool_name + ", please use add_mcp_server to install mcp server"
 
-async def add_mcp_server(mcp_server_name: str) -> str:
+async def add_mcp_server(mcp_server_name: str, client_headers: dict[str, str] = {}) -> str:
     """
     安装指定的mcp server
     :param mcp_server_name: mcp server名称
@@ -249,12 +251,12 @@ async def add_mcp_server(mcp_server_name: str) -> str:
         if mcp_server is None:
             return mcp_server_name + " is not found" + ", use search_mcp_server to get mcp servers"
 
-        disenabled_tools = {}
+        disabled_tools = {}
         tools_meta = mcp_server.mcp_config_detail.tool_spec.tools_meta
         for tool_name in tools_meta:
             meta = tools_meta[tool_name]
             if not meta.enabled:
-                disenabled_tools[tool_name] = True
+                disabled_tools[tool_name] = True
 
         if mcp_server_name not in mcp_servers_dict or mcp_servers_dict[mcp_server_name] is None or not await mcp_servers_dict[mcp_server_name].healthy():
             env = get_default_environment()
@@ -274,8 +276,11 @@ async def add_mcp_server(mcp_server_name: str) -> str:
                     server_config['headers'] = {}
             router_logger.info(f"add mcp server: {mcp_server_name}, config:{mcp_server.agentConfig}")
             server = CustomServer(name=mcp_server_name, config=mcp_server.agentConfig)
-            await server.wait_for_initialization()
-            if await server.healthy():
+            if server._protocol == 'stdio':
+                await server.wait_for_initialization()
+                if await server.healthy():
+                    mcp_servers_dict[mcp_server_name] = server
+            else:
                 mcp_servers_dict[mcp_server_name] = server
         
         if mcp_server_name not in mcp_servers_dict:
@@ -283,14 +288,14 @@ async def add_mcp_server(mcp_server_name: str) -> str:
     
         server = mcp_servers_dict[mcp_server_name]
 
-        tools = await server.list_tools()
-        init_result = server.get_initialized_response()
+        tools = await server.list_tools_with_headers(client_headers=client_headers)
+        init_result = await server.get_initialized_response(client_headers=client_headers)
         mcp_version = init_result.serverInfo.version if init_result and hasattr(init_result, 'serverInfo') else "1.0.0"
         router_logger.info(f"add mcp server: {mcp_server_name}, version:{mcp_version}")
 
         tool_list = []
         for tool in tools:
-            if tool.name in disenabled_tools:
+            if tool.name in disabled_tools:
                 continue
             dct = {}
             dct['name'] = tool.name
@@ -437,11 +442,14 @@ def create_mcp_app() -> Server:
             name: str, arguments: dict
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         router_logger.info(f"calling tool: {name}, arguments: {arguments}")
+        headers = {}
+        if mcp_app.request_context is not None and mcp_app.request_context.request is not None and mcp_app.request_context.request.headers is not None:
+            headers = mcp_app.request_context.request.headers
         if mode == 'proxy':
             if proxied_mcp_name not in mcp_servers_dict:
                 if await init_proxied_mcp():
                     raise NameError(f"failed to init proxied mcp: {proxied_mcp_name}")
-            result = await mcp_servers_dict[proxied_mcp_name].execute_tool(tool_name=name, arguments=arguments)
+            result = await mcp_servers_dict[proxied_mcp_name].execute_tool(tool_name=name, arguments=arguments, client_headers=headers)
             return result.content
         else:
             match name:
@@ -449,19 +457,22 @@ def create_mcp_app() -> Server:
                     content = await search_mcp_server(arguments["task_description"], arguments["key_words"])
                     return [types.TextContent(type="text", text=content)]
                 case "add_mcp_server":
-                    content = await add_mcp_server(arguments["mcp_server_name"])
+                    content = await add_mcp_server(arguments["mcp_server_name"], headers)
                     return [types.TextContent(type="text", text=content)]
                 case "use_tool":
                     params = json.loads(arguments["params"])
-                    content = await use_tool(arguments["mcp_server_name"], arguments["mcp_tool_name"], params)
+                    content = await use_tool(arguments["mcp_server_name"], arguments["mcp_tool_name"], params, headers)
                     return [types.TextContent(type="text", text=content)]
                 case _:
                     return [types.TextContent(type="text", text="not implemented tool")]
 
     @mcp_app.list_tools()
     async def list_tools() -> list[types.Tool]:
+        headers = {}
+        if mcp_app.request_context is not None and mcp_app.request_context.request is not None and mcp_app.request_context.request.headers is not None:
+            headers = mcp_app.request_context.request.headers
         if mode == MODE_PROXY:
-            return await proxied_mcp_tools()
+            return await proxied_mcp_tools(headers)
         else:
             return router_tools()
 

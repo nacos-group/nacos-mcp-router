@@ -14,6 +14,8 @@ from .router_types import ChromaDb, McpServer
 from .logger import NacosMcpRouteLogger
 from .constants import MODE_ROUTER
 import threading
+import unicodedata
+import re
 
 logger = NacosMcpRouteLogger.get_logger()
 
@@ -200,6 +202,26 @@ class McpUpdater:
       logger.warning(f"exception while getting mcp server by query: {query}", exc_info=e)
       return []
 
+  def _normalize_chinese_text(self, text: str) -> str:
+    """标准化中文文本，处理编码、空格、全角半角等问题"""
+    if not text:
+      return ""
+    
+    # 统一编码为 UTF-8
+    if isinstance(text, bytes):
+      text = text.decode('utf-8', errors='ignore')
+    
+    # 移除不可见字符和多余空格
+    text = re.sub(r'\s+', ' ', text.strip())
+    
+    # 全角转半角
+    text = unicodedata.normalize('NFKC', text)
+    
+    # 移除所有空格
+    text = text.replace(' ', '').replace('　', '')
+    
+    return text.lower()
+
   async def search_mcp_by_keyword(self, keyword: str) -> List[McpServer]:
     """通过关键词搜索 MCP 服务器"""
     try:
@@ -207,11 +229,18 @@ class McpUpdater:
       cache_values = await self._cache_values()
       logger.info("cache size: " + str(len(cache_values)))
 
+      # 标准化关键词
+      normalized_keyword = self._normalize_chinese_text(keyword)
+
       for mcp_server in cache_values:
         if mcp_server.description is None:
+          logger.info(f"mcp server {mcp_server.name} description is None")
           continue
-
-        if keyword in mcp_server.description:
+        
+        # 标准化描述文本
+        normalized_description = self._normalize_chinese_text(mcp_server.description)
+        
+        if normalized_keyword in normalized_description:
           servers.append(mcp_server)
 
       logger.info(f"result mcp servers search by keywords: {len(servers)}, key: {keyword}")
