@@ -42,18 +42,3 @@ class McpSseTransport(McpTransport):
         ) as (read, write):
             async with ClientSession(read, write) as session:
                 return await session.initialize()
-
-async def main():
-    transport = McpSseTransport(
-        url="https://mcp.amap.com:443/sse?key=1565581ab1186e2027434201d3fe8283",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer 1234567890"
-        }
-    )
-    result = await transport.handle_list_tools(client_headers={})
-    print(result)
-    
-
-if __name__ == "__main__":
-    asyncio.run(main())

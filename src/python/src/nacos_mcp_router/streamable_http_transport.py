@@ -40,17 +40,3 @@ class McpStreamableHttpTransport(McpTransport):
         ) as (read, write, _):
             async with ClientSession(read, write) as session:
                 return await session.initialize()
-async def main():
-    transport = McpStreamableHttpTransport(
-        url="http://localhost:9001/mcp",
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": "Bearer 1234567890"
-        }
-    )
-    result = await transport.handle_tool_call(args={"a": 4,"b":4}, client_headers={}, name="add")
-    print(result)
-    
-
-if __name__ == "__main__":
-    asyncio.run(main())
