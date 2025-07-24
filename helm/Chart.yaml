@@ -1,0 +1,20 @@
+apiVersion: v2
+name: nacos-mcp-router
+description: A Helm chart for deploying a Nacos MCP Router
+type: application
+version: 0.2.2
+appVersion: "0.2.2"
+keywords:
+  - nacos
+  - registry
+  - config
+  - cluster
+  - mysql
+home: https://nacos.io/
+sources:
+  - https://github.com/alibaba/nacos
+  - https://github.com/nacos-group/nacos-docker
+  - https://github.com/nacos-group/nacos-mcp-router
+maintainers:
+  - name: JianweiWang
+    email: 786594722@qq.com

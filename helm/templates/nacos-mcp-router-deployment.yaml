@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nacos-mcp-router
+spec:
+  replicas: {{ .Values.nacosMcpRouter.replicaCount }}
+  selector:
+    matchLabels:
+      app: nacos-mcp-router
+  template:
+    metadata:
+      labels:
+        app: nacos-mcp-router
+    spec:
+      containers:
+        - name: nacos-mcp-router
+          image: "{{ .Values.nacosMcpRouter.image }}:{{ .Values.nacosMcpRouter.tag }}"
+          env:
+            - name: TRANSPORT_TYPE
+              value: {{ .Values.nacosMcpRouter.env.TRANSPORT_TYPE | quote }}
+            - name: NACOS_ADDR
+              value: {{ .Values.nacosMcpRouter.env.NACOS_ADDR | quote }}
+            - name: NACOS_USERNAME
+              value: {{ .Values.nacosMcpRouter.env.NACOS_USERNAME | quote }}
+            - name: NACOS_PASSWORD
+              value: {{ .Values.nacosMcpRouter.env.NACOS_PASSWORD | quote }}
+          resources:
+            {{- toYaml .Values.nacosMcpRouter.resources | nindent 12 }} 
