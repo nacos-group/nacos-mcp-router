@@ -195,7 +195,7 @@ docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 
 ## Helm 部署
 
-你可以使用项目自带的 Helm Chart 一键部署 nacos-mcp-router 及其依赖（Nacos、MySQL）。
+你可以使用项目自带的 Helm Chart 一键部署 nacos-mcp-router 及其依赖（Nacos、MySQL）,并自动创建slb对外暴露服务。
 
 ### 1. 配置敏感信息
 

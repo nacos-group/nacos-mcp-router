@@ -2,7 +2,7 @@
 
 set -e
 
-VALUES_FILE="helm/values.yaml"
+VALUES_FILE="./values.yaml"
 
 # 生成随机字符串，至少8位，纯 Bash 实现
 rand_str() {

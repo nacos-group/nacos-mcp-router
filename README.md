@@ -219,7 +219,7 @@ docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 
 ## Helm Deployment
 
-You can deploy nacos-mcp-router and its dependencies (Nacos, MySQL) using the provided Helm chart.
+You can use the provided Helm chart to deploy nacos-mcp-router and its dependencies (Nacos, MySQL) with one click, and automatically expose the service via a load balancer (SLB).
 
 ### 1. Prepare values
 
