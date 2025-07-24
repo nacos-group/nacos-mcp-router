@@ -193,5 +193,60 @@ docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 }
 ```
 
+## Helm 部署
+
+你可以使用项目自带的 Helm Chart 一键部署 nacos-mcp-router 及其依赖（Nacos、MySQL）。
+
+### 1. 配置敏感信息
+
+部署前，建议先使用脚本自动生成并注入安全的随机密码和密钥：
+
+```bash
+cd helm
+bash randomize_values.sh
+```
+该脚本会自动为以下字段生成安全随机值并注入到 `values.yaml`：
+- `MYSQL_SERVICE_PASSWORD`
+- `NACOS_AUTH_TOKEN`
+- `NACOS_AUTH_IDENTITY_KEY`
+- `NACOS_AUTH_IDENTITY_VALUE`
+- 以及所有相关的密码字段同步
+
+### 2. 使用 Helm 安装
+
+```bash
+cd helm
+helm install nacos-mcp-router . -n nacos-mcp --create-namespace
+```
+- 这会根据 `values.yaml` 配置部署 Nacos、MySQL 和 nacos-mcp-router。
+- 如有需要，可在安装前自定义 `values.yaml`。
+
+### 3. 升级或重新部署
+
+如需更新配置并重新应用：
+
+```bash
+helm upgrade nacos-mcp-router . -n nacos-mcp
+```
+
+### 4. 卸载
+
+```bash
+helm uninstall nacos-mcp-router -n nacos-mcp
+```
+
+### 5. 查看状态
+
+```bash
+helm status nacos-mcp-router -n nacos-mcp
+kubectl get pods -n nacos-mcp
+```
+
+### 6. 注意事项
+
+- 请确保已正确安装 [Helm](https://helm.sh/) 和 [kubectl](https://kubernetes.io/docs/tasks/tools/) 并配置好 K8s 集群。
+- `randomize_values.sh` 脚本可多次运行，确保每次部署前敏感信息安全。
+- 生产环境请根据实际需求调整 `values.yaml` 中的资源限制和存储配置。
+
 ## 许可证
 nacos-mcp-router 使用 Apache 2.0 许可证. 这意味着您可以自由地使用、修改和分发该软件，但需遵守 Apache 2.0 许可证的条款和条件。更多详细信息，请参阅项目仓库中的 LICENSE 文件

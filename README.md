@@ -217,6 +217,62 @@ docker run -i --rm --network host -e NACOS_ADDR=$NACOS_ADDR -e NACOS_USERNAME=$N
 }
 ```
 
+## Helm Deployment
+
+You can deploy nacos-mcp-router and its dependencies (Nacos, MySQL) using the provided Helm chart.
+
+### 1. Prepare values
+
+Before deploying, you can use the provided script to randomize sensitive values in your `values.yaml`:
+
+```bash
+cd helm
+bash randomize_values.sh
+```
+This will automatically generate and inject secure random values for:
+- `MYSQL_SERVICE_PASSWORD`
+- `NACOS_AUTH_TOKEN`
+- `NACOS_AUTH_IDENTITY_KEY`
+- `NACOS_AUTH_IDENTITY_VALUE`
+- And synchronize all related password fields.
+
+### 2. Install with Helm
+
+```bash
+cd helm
+helm install nacos-mcp-router . -n nacos-mcp --create-namespace
+```
+
+- This will deploy Nacos, MySQL, and nacos-mcp-router with the configuration in `values.yaml`.
+- You can customize `values.yaml` as needed before installation.
+
+### 3. Upgrade or Reinstall
+
+If you need to update configuration and re-apply:
+
+```bash
+helm upgrade nacos-mcp-router . -n nacos-mcp
+```
+
+### 4. Uninstall
+
+```bash
+helm uninstall nacos-mcp-router -n nacos-mcp
+```
+
+### 5. Check status
+
+```bash
+helm status nacos-mcp-router -n nacos-mcp
+kubectl get pods -n nacos-mcp
+```
+
+### 6. Notes
+
+- Make sure you have [Helm](https://helm.sh/) and [kubectl](https://kubernetes.io/docs/tasks/tools/) installed and configured.
+- The `randomize_values.sh` script is idempotent and can be run multiple times before deployment.
+- For production, review and adjust resource limits and storage settings in `values.yaml`.
+
 ## License
 
 nacos-mcp-router is licensed under the Apache 2.0 License. This means you are free to use, modify, and distribute the software, subject to the terms and conditions of the Apache 2.0 License. For more details, please see the `LICENSE` file in the project repository.
