@@ -27,7 +27,7 @@ export class McpManager {
   private async updateNow(): Promise<void> {
     try {
       const mcpServers = await this.nacosClient.getMcpServers();
-      logger.info(`get mcp server list from nacos, size: ${mcpServers.length}`);
+      logger.debug(`get mcp server list from nacos, size: ${mcpServers.length}`);
 
       if (mcpServers.length === 0) {
         return;
@@ -57,9 +57,9 @@ export class McpManager {
         }
       }
 
-      logger.info(`updated mcp server cache, size: ${cache.size}`);
+      logger.debug(`updated mcp server cache, size: ${cache.size}`);
       const mcpServerNames = Array.from(cache.keys());
-      logger.info(`updated mcp server names: ${mcpServerNames.join(", ")}`);
+      logger.debug(`updated mcp server names: ${mcpServerNames.join(", ")}`);
 
       this._cache = cache;
 

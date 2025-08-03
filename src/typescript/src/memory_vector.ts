@@ -10,7 +10,7 @@ type Metadata = Record<string, any>;
 let pipeline: any;
 async function getPipeline() {
   if (!pipeline) {
-    pipeline = (await import('@xenova/transformers')).pipeline;
+    pipeline = (await (new Function('return import("@xenova/transformers")')())).pipeline;
   }
   return pipeline;
 }

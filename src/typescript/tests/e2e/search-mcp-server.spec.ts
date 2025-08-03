@@ -132,7 +132,7 @@ test.describe('MCP Inspector - Search MCP Server 功能测试', () => {
         // 尝试填写工具参数
         const taskDescInput = page.locator('input[name="taskDescription"], textarea[name="taskDescription"]');
         if (await taskDescInput.count() > 0) {
-          await taskDescInput.fill(' 有哪些推荐 MCP 的 MCP');
+          await taskDescInput.fill('有哪些推荐 MCP 的 MCP');
           console.log('✅ 填写了任务描述');
         }
         

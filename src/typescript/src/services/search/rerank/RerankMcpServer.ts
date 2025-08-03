@@ -23,8 +23,8 @@ export class RerankMcpServer {
     defaultOptions: Partial<RerankOptions> = {}
   ) {
     this.defaultOptions = {
-      limit: 10,
-      minSimilarity: 0.5,
+      limit: 7,
+      minSimilarity: 0,
       enableProfessionalRerank: false,
       ...defaultOptions
     };

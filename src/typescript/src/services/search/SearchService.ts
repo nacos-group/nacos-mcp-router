@@ -46,7 +46,7 @@ export class SearchService {
   private providers: SearchProvider[] = [];
   private rerankService: RerankMcpServer;
   private defaultRerankOptions: RerankOptions = {
-    limit: 10,
+    limit: 7,
     minSimilarity: 0.5,
     enableProfessionalRerank: false,
   };
@@ -114,17 +114,13 @@ export class SearchService {
       return [];
     }
 
-    logger.debug(`Searching with params: ${JSON.stringify(params)}`);
-
-    // Parallel search across providers
+    logger.info(`Searching with params: ${JSON.stringify(params)}`);
     const providerResults: ProviderResult[] = [];
     const searchPromises = this.providers.map(async (provider) => {
       const providerName = provider.constructor.name;
       try {
         const results = await provider.search(params);
-        logger.debug(`${providerName} returned ${results.length} results`);
-        
-        // Ensure results are properly typed
+        logger.info(`${providerName} returned ${results.length} results`);
         const typedResults = results.map(result => 
           ensureEnhancedServer({
             ...result,
@@ -151,11 +147,11 @@ export class SearchService {
     try {
       // Merge and rerank results
       const mergedOptions = { ...this.defaultRerankOptions, ...rerankOptions };
-      logger.debug(`Reranking with options: ${JSON.stringify(mergedOptions)}`);
+      logger.info(`Reranking with options: ${JSON.stringify(mergedOptions)}`);
       
       const rerankedResults = await this.rerankService.rerank(providerResults, mergedOptions);
       
-      logger.debug(`Successfully reranked to ${rerankedResults.length} results`);
+      logger.info(`Successfully reranked to ${rerankedResults.length} results`);
       return rerankedResults;
     } catch (error) {
       logger.error('Error during reranking:', error);
