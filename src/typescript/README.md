@@ -17,7 +17,38 @@
 ### 环境要求
 - Node.js 16+
 - Nacos 服务端
+- ts-node (用于开发和测试)
 
+### 安装依赖
+
+```bash
+# 安装项目依赖
+npm install
+
+# 安装开发依赖（如果需要运行测试）
+npm install --save-dev ts-node jest @types/jest ts-jest
+```
+
+## 开发与测试
+
+### 常用命令
+
+```bash
+# 构建项目
+npm run build，
+
+# 运行单元测试
+npm test
+
+# 运行端到端测试
+npm run test:e2e
+
+# 以 UI 模式运行端到端测试
+npm run test:e2e:ui
+
+# 调试模式
+npm run debug
+```
 
 ## 使用方法
 
