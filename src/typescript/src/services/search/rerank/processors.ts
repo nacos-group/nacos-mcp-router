@@ -1,6 +1,6 @@
 import { logger } from "../../../logger";
 import { BaseRerankProcessor, IRerankProcessor, ProviderPriorities, RerankOptions } from "../../../types/rerank";
-import { NacosMcpServer, createNacosMcpServer } from "../../../types/nacos_mcp_server";
+import { NacosMcpServer, createMcpProviderResult } from "../../../types/nacos_mcp_server";
 import { NacosMcpServer as BaseNacosMcpServer } from "../../../router_types";
 
 // Helper type guard for enhanced NacosMcpServer
@@ -13,7 +13,7 @@ function ensureEnhancedServer(server: any): NacosMcpServer {
   if (isEnhancedServer(server)) {
     return server;
   }
-  return createNacosMcpServer(server as BaseNacosMcpServer);
+  return createMcpProviderResult(server as BaseNacosMcpServer);
 }
 
 /**
@@ -41,7 +41,7 @@ export class ScoreCalculationProcessor extends BaseRerankProcessor {
       // Simple weighted score - can be adjusted based on requirements
       const score = similarity * 0.7 + (priority / 10) * 0.3;
       
-      return createNacosMcpServer(result, { score });
+      return createMcpProviderResult(result, { score });
     });
 
     return this.next(scored, options);

@@ -132,26 +132,27 @@ test.describe('MCP Inspector - Search MCP Server 功能测试', () => {
         // 尝试填写工具参数
         const taskDescInput = page.locator('input[name="taskDescription"], textarea[name="taskDescription"]');
         if (await taskDescInput.count() > 0) {
-          await taskDescInput.fill('有哪些推荐 MCP 的 MCP');
+          await taskDescInput.fill('用于测试的 MCP');
           console.log('✅ 填写了任务描述');
         }
         
-        const keyWordsInput = page.locator('input[name="keyWords"], textarea[name="keyWords"]');
+        const keyWordsInput = page.locator('.npm__react-simple-code-editor__textarea');
         if (await keyWordsInput.count() > 0) {
-          await keyWordsInput.fill('["推荐"]');
+          await keyWordsInput.fill('["test","测试"]');
           console.log('✅ 填写了关键词');
         }
-        
+        await page.waitForTimeout(2000);
+
         const callButton = page.locator('button:has-text("Call"), button:has-text("Execute"), button:has-text("Run"), button[type="submit"]');
         if (await callButton.count() > 0) {
           await callButton.first().click();
           console.log('✅ 点击了调用按钮');
           
           // 等待结果
-          await page.waitForTimeout(5000);
+          await page.waitForTimeout(3000);
           
           // 检查是否有结果显示
-          const resultArea = page.locator('.result, .response, .output, pre').first();
+          const resultArea = page.locator('[title="Click to collapse"]').first();
           if (await resultArea.count() > 0) {
             const resultText = await resultArea.textContent();
             console.log(`📋 工具调用结果: ${resultText?.substring(0, 200)}...`);

@@ -2,7 +2,7 @@ import { SearchParams, SearchProvider } from "../../types/search";
 import { logger } from "../../logger";
 import { RerankMcpServer, type ProviderPriorities, type RerankOptions } from "./rerank/RerankMcpServer";
 import { type ProviderResult } from "../../types/rerank";
-import { NacosMcpServer, createNacosMcpServer as createServer } from "../../types/nacos_mcp_server";
+import { NacosMcpServer, createMcpProviderResult as createServer } from "../../types/nacos_mcp_server";
 import { CompassSearchProvider } from "./CompassSearchProvider";
 
 /**
