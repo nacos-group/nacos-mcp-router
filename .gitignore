@@ -177,3 +177,7 @@ src/typescript/node_modules
 getting-started/
 my_hnsw_*.*
 .DS_Store
+
+# TypeScript Test 
+src/typescript/coverage
+src/typescript/test-results
