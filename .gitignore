@@ -181,3 +181,4 @@ my_hnsw_*.*
 # TypeScript Test 
 src/typescript/coverage
 src/typescript/test-results
+src/typescript/playwright-report
