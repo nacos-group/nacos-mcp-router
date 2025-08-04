@@ -95,12 +95,28 @@ test_mcp_tool() {
     echo "$request" | node "$PROJECT_ROOT/dist/stdio.js" > "$temp_file" 2>&1 &
     local mcp_pid=$!
     
-    # Give it some time to process
-    sleep 5
+    # Wait for the process to complete with timeout
+    local timeout=10
+    local count=0
+    while [ $count -lt $timeout ]; do
+        if ! kill -0 $mcp_pid 2>/dev/null; then
+            # Process has finished
+            wait $mcp_pid 2>/dev/null || true
+            break
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
     
-    # Check if process is still running, if so kill it
+    # Check if process is still running, if so kill it forcefully
     if kill -0 $mcp_pid 2>/dev/null; then
-        kill $mcp_pid 2>/dev/null || true
+        log_info "Process timeout, killing MCP server process $mcp_pid"
+        kill -TERM $mcp_pid 2>/dev/null || true
+        sleep 2
+        # If still running, force kill
+        if kill -0 $mcp_pid 2>/dev/null; then
+            kill -KILL $mcp_pid 2>/dev/null || true
+        fi
         wait $mcp_pid 2>/dev/null || true
     fi
     

@@ -177,7 +177,6 @@ test.describe('MCP Inspector - Search MCP Server 功能测试', () => {
       await page.screenshot({ path: 'test-results/search-tool-test.png' });
     }
     
-    // 测试标记为通过（因为我们主要验证流程能执行）
     expect(true).toBeTruthy();
   });
 });

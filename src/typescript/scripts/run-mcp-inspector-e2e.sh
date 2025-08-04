@@ -41,9 +41,9 @@ cleanup_ports() {
             kill -9 $pids 2>/dev/null || true
         fi
     done
-    # 额外清理 inspector 相关进程
-    pkill -f "inspector" 2>/dev/null || true
-    pkill -f "mock-nacos" 2>/dev/null || true
+    # 额外清理 inspector 相关进程 - 更精确的匹配
+    pkill -f "mcp-inspector" 2>/dev/null || true
+    pkill -f "scripts/e2e/mock-nacos-server.js" 2>/dev/null || true
     sleep 2
 }
 
@@ -134,26 +134,35 @@ AUTH_TOKEN=""
 
 while [ $count -lt $timeout ]; do
     if [[ -f mcp-inspector.log ]]; then
-        # 检查是否有 URL 和 token
+        # 首先检查是否有带 token 的完整 URL
         if grep -q "inspector with token pre-filled" mcp-inspector.log; then
             INSPECTOR_URL=$(grep -o "http://localhost:[0-9]*/?MCP_PROXY_AUTH_TOKEN=[a-f0-9-]*" mcp-inspector.log | head -1)
             if [[ -n $INSPECTOR_URL ]]; then
-                # 提取 token
+                # 提取 token 和 base URL
                 AUTH_TOKEN=$(echo $INSPECTOR_URL | grep -o "MCP_PROXY_AUTH_TOKEN=[a-f0-9-]*" | cut -d'=' -f2)
                 BASE_URL=$(echo $INSPECTOR_URL | cut -d'?' -f1)
+                echo "✅ 找到完整的 Inspector URL: $INSPECTOR_URL"
                 break
             fi
         fi
         
-        # 也检查其他可能的 URL 格式
+        # 检查服务器是否启动（寻找端口信息）
         if grep -q "localhost:6274" mcp-inspector.log; then
             BASE_URL="http://localhost:6274"
-            # 尝试从日志中提取 token
-            AUTH_TOKEN=$(grep -o "token[\"':]\\s*[\"']\\?[a-f0-9-]*" mcp-inspector.log | head -1 | grep -o "[a-f0-9-]*$" || echo "")
+            # 尝试多种方式提取 token
+            AUTH_TOKEN=$(grep -oE "token[\"':]*[[:space:]]*[\"']?[a-f0-9-]+" mcp-inspector.log | head -1 | grep -oE "[a-f0-9-]+$" || echo "")
+            
+            # 如果没有找到 token，尝试其他模式
+            if [[ -z $AUTH_TOKEN ]]; then
+                AUTH_TOKEN=$(grep -oE "MCP_PROXY_AUTH_TOKEN[=:][\"']?[a-f0-9-]+" mcp-inspector.log | head -1 | grep -oE "[a-f0-9-]+$" || echo "")
+            fi
+            
             if [[ -n $AUTH_TOKEN ]]; then
                 INSPECTOR_URL="$BASE_URL?MCP_PROXY_AUTH_TOKEN=$AUTH_TOKEN"
+                echo "✅ 从日志提取到 Inspector URL: $INSPECTOR_URL"
                 break
             else
+                echo "⚠️  找到服务器但未找到 token，使用基础 URL: $BASE_URL"
                 INSPECTOR_URL="$BASE_URL"
                 break
             fi

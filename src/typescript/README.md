@@ -35,7 +35,7 @@ npm install --save-dev ts-node jest @types/jest ts-jest
 
 ```bash
 # 构建项目
-npm run build，
+npm run build
 
 # 运行单元测试
 npm test
