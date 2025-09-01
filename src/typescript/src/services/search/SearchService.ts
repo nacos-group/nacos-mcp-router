@@ -47,7 +47,7 @@ export class SearchService {
   private rerankService: RerankMcpServer;
   private defaultRerankOptions: RerankOptions = {
     limit: 7,
-    minSimilarity: 0.5,
+    minSimilarity: 0.4,
     enableProfessionalRerank: false,
   };
 
@@ -120,7 +120,7 @@ export class SearchService {
       const providerName = provider.constructor.name;
       try {
         const results = await provider.search(params);
-        logger.info(`${providerName} returned ${results.length} results`);
+        logger.info(`${providerName} returned ${results.length} results: ${JSON.stringify(results)}`);
         const typedResults = results.map(result => 
           ensureEnhancedServer({
             ...result,
