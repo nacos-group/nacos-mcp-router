@@ -1,5 +1,4 @@
 import { HierarchicalNSW } from 'hnswlib-node';
-// import { pipeline } from '@xenova/transformers'; // 改为动态导入
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -10,7 +9,7 @@ type Metadata = Record<string, any>;
 let pipeline: any;
 async function getPipeline() {
   if (!pipeline) {
-    pipeline = (await (new Function('return import("@xenova/transformers")')())).pipeline;
+    pipeline = (await import('@xenova/transformers')).pipeline;
   }
   return pipeline;
 }

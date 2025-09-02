@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
+    "module": "Node16",
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -9,7 +9,7 @@
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
+    "moduleResolution": "Node16",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
