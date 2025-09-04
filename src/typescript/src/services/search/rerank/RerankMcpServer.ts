@@ -6,7 +6,7 @@ import {
   IRerankProcessor 
 } from "../../../types/rerank";
 import { RerankProcessorFactory } from "./processors";
-import { NacosMcpServer, isNacosMcpServer, createNacosMcpServer } from "../../../types/nacos_mcp_server";
+import { NacosMcpServer, isNacosMcpServer, createMcpProviderResult } from "../../../types/nacos_mcp_server";
 
 // Re-export types for external use
 export type { ProviderPriorities, RerankOptions } from "../../../types/rerank";
@@ -23,8 +23,8 @@ export class RerankMcpServer {
     defaultOptions: Partial<RerankOptions> = {}
   ) {
     this.defaultOptions = {
-      limit: 10,
-      minSimilarity: 0.5,
+      limit: 7,
+      minSimilarity: 0,
       enableProfessionalRerank: false,
       ...defaultOptions
     };
@@ -91,7 +91,7 @@ export class RerankMcpServer {
           };
 
           // Create a properly typed NacosMcpServer with all required methods
-          const result = createNacosMcpServer(baseProps, {
+          const result = createMcpProviderResult(baseProps, {
             providerName,
             similarity: 'similarity' in baseResult ? Number(baseResult.similarity) : undefined,
             score: 'score' in baseResult ? Number(baseResult.score) : undefined

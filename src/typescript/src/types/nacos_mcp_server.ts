@@ -6,10 +6,10 @@ import { NacosMcpServer as BaseNacosMcpServer } from "../router_types";
 export interface NacosMcpServer extends BaseNacosMcpServer {
   /** Optional provider name that returned this result */
   providerName?: string;
-  
+
   /** Optional relevance score (0-1) from the search provider */
   similarity?: number;
-  
+
   /** Optional computed score after reranking */
   score?: number;
 }
@@ -46,7 +46,7 @@ export function isNacosMcpServer(obj: any): obj is NacosMcpServer {
  * Creates a new NacosMcpServer with additional search/rerank properties
  * Ensures all required methods are properly bound to the returned object
  */
-export function createNacosMcpServer(
+export function createMcpProviderResult(
   base: NacosMcpServerInit,
   options: {
     providerName?: string;
@@ -70,11 +70,17 @@ export function createNacosMcpServer(
   if (options.providerName) {
     server.providerName = options.providerName;
   }
-  if (options.similarity !== undefined) {
-    server.similarity = options.similarity;
-  }
-  if (options.score !== undefined) {
-    server.score = options.score;
+  // NacosMcpProvider is the default provider, so it should have the highest priority
+  if (options.providerName === 'NacosMcpProvider') {
+    server.similarity = 1;
+    server.score = 1;
+  } else {
+    if (options.similarity !== undefined) {
+      server.similarity = options.similarity;
+    }
+    if (options.score !== undefined) {
+      server.score = options.score;
+    }
   }
 
   // Copy any additional properties from base
@@ -86,6 +92,6 @@ export function createNacosMcpServer(
   }, {});
 
   Object.assign(server, extraProps);
-  
+
   return server;
 }

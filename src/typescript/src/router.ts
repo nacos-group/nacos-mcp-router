@@ -195,7 +195,7 @@ ${content}
       // const defaultEF = new DefaultEmbeddingFunction({ model: modelName });
       // console.log(`defaultEF: ${defaultEF}`);
 
-      const { env } = await import("@xenova/transformers");
+      const { env } = await import('@xenova/transformers');
       (env as any).remoteHost = "https://hf-mirror.com";
       if (!this.vectorDB) {
         this.vectorDB = new VectorDB();

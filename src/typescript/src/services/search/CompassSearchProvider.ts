@@ -3,18 +3,6 @@ import { NacosMcpServer } from "../../types/nacos_mcp_server";
 import { logger } from "../../logger";
 import { NacosMcpServer as BaseNacosMcpServer } from "../../router_types";
 
-interface MCPServerResponse {
-  id?: string;
-  title: string;
-  description: string;
-  sourceUrl: string;
-  similarity: number;
-  score?: number;
-  installations?: Record<string, any>;
-  categories?: string[] | string;
-  tags?: string[] | string;
-}
-
 /**
  * COMPASS API search provider implementation that adapts to NacosMcpServer
  */

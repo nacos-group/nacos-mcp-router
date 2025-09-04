@@ -1,5 +1,4 @@
 import { HierarchicalNSW } from 'hnswlib-node';
-// import { pipeline } from '@xenova/transformers'; // 改为动态导入
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
