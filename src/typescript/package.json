@@ -27,7 +27,8 @@
     "test:playwright": "npx playwright test",
     "test:playwright:headed": "npx playwright test --headed",
     "test:all": "./scripts/run-e2e-test.sh",
-    "debug": "npx @modelcontextprotocol/inspector npx nacos-mcp-router"
+    "debug": "npx @modelcontextprotocol/inspector npx nacos-mcp-router",
+    "debug:json": "npx @modelcontextprotocol/inspector@latest --config mcp.json --server nacos-server"
   },
   "keywords": [],
   "author": "",
