@@ -176,7 +176,6 @@ src/typescript/node_modules
 .vscode/
 getting-started/
 my_hnsw_*.*
-.DS_Store
 
 # TypeScript Test 
 src/typescript/coverage

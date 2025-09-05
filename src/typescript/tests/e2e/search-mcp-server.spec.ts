@@ -54,72 +54,6 @@ test.describe('MCP Inspector - Search MCP Server 功能测试', () => {
     
     await page.screenshot({ path: 'test-results/mcp-inspector-loaded.png' });
   });
-  //   console.log('🔍 查找 MCP 工具列表...');
-    
-  //   // 等待页面完全加载
-  //   await page.waitForTimeout(5000);
-    
-  //   // 尝试查找工具列表的不同可能位置
-  //   const toolSelectors = [
-  //     'select[name="tool"]',
-  //     'select#tool',
-  //     '.tool-selector',
-  //     '[data-testid="tool-select"]',
-  //     'select:has-text("SearchMcpServer")',
-  //     '*:has-text("SearchMcpServer")',
-  //     '*:has-text("tool")',
-  //     'select', // 通用选择器
-  //   ];
-    
-  //   let toolSelect = null;
-    
-  //   for (const selector of toolSelectors) {
-  //     try {
-  //       const element = page.locator(selector).first();
-  //       if (await element.count() > 0) {
-  //         console.log(`✅ 找到工具选择器: ${selector}`);
-  //         toolSelect = element;
-  //         break;
-  //       }
-  //     } catch (error) {
-  //       // 继续尝试下一个选择器
-  //     }
-  //   }
-    
-  //   if (!toolSelect) {
-  //     // 如果找不到特定的工具选择器，至少验证页面内容
-  //     console.log('⚠️ 未找到工具选择器，检查页面内容...');
-      
-  //     const pageContent = await page.content();
-  //     const hasSearchTool = pageContent.includes('SearchMcpServer') || 
-  //                          pageContent.includes('search') ||
-  //                          pageContent.includes('tool');
-      
-  //     console.log(`页面是否包含搜索相关内容: ${hasSearchTool}`);
-      
-  //     // 截图用于调试
-  //     await page.screenshot({ path: 'test-results/mcp-inspector-tools.png' });
-      
-  //     // 暂时跳过工具选择的具体测试，但不失败
-  //     test.skip(true, 'MCP Inspector 界面结构需要进一步分析');
-  //     return;
-  //   }
-    
-  //   // 如果找到了工具选择器，验证 SearchMcpServer 工具存在
-  //   try {
-  //     const searchTool = page.locator('option:has-text("SearchMcpServer")');
-  //     if (await searchTool.count() > 0) {
-  //       console.log('✅ 找到 SearchMcpServer 工具');
-  //       expect(await searchTool.count()).toBeGreaterThan(0);
-  //     } else {
-  //       console.log('⚠️ 未找到 SearchMcpServer 工具选项');
-  //       // 截图用于调试
-  //       await page.screenshot({ path: 'test-results/tool-options.png' });
-  //     }
-  //   } catch (error) {
-  //     console.log('⚠️ 检查工具选项时出错:', error);
-  //   }
-  // });
 
   test('应该能够调用 SearchMcpServer 工具', async ({ page }) => {
     console.log('🧪 测试 SearchMcpServer 工具调用...');
@@ -158,7 +92,9 @@ test.describe('MCP Inspector - Search MCP Server 功能测试', () => {
             console.log(`📋 工具调用结果: ${resultText?.substring(0, 200)}...`);
             
             // 验证结果包含期望的内容
-            if (resultText && (resultText.includes('exact-server-name') || resultText.includes('获取') || resultText.includes('步骤'))) {
+            const expectedKeywords = ['exact-server-name', '获取', '步骤'];
+            const isResultValid = expectedKeywords.some(keyword => resultText.includes(keyword));
+            if (resultText && isResultValid) {
               console.log('✅ 工具调用成功，返回了期望的结果');
             } else {
               console.log('⚠️ 工具调用结果格式可能不符合预期');

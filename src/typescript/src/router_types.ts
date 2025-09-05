@@ -9,6 +9,7 @@ import { CallToolResultSchema, ListResourcesResultSchema, LoggingMessageNotifica
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 function _stdioTransportContext(config: Record<string, any>): StdioClientTransport {
+  logger.info(`stdio transport context, config: ${JSON.stringify(config)}`);
   return new StdioClientTransport({
     command: config.command,
     args: config.args,
@@ -36,6 +37,7 @@ export class CustomServer {
   private client: Client | undefined;
   private sessionId: string | undefined;
   private protocol: string;
+  private selectedServerKey: string | undefined;
   constructor(name: string, config: Record<string, any>, protocol: string) {
     this.name = name;
     this.config = config;
@@ -55,6 +57,29 @@ export class CustomServer {
     //   name: this.name,
     //   version: '1.0.0'
     // })
+  }
+
+  /**
+   * 解析服务器键，处理别名和错误情况
+   * @param key 要解析的键名
+   * @param context 上下文信息，用于日志记录
+   * @returns 解析后的服务器键
+   */
+  private resolveServerKey(key: string, context: string = 'server'): string {
+    const serverKeys = this.config?.mcpServers ? Object.keys(this.config.mcpServers) : [];
+    let resolvedKey = key;
+    
+    if (!serverKeys.includes(resolvedKey)) {
+      if (serverKeys.length === 1) {
+        resolvedKey = serverKeys[0];
+        logger.warn(`${context} 使用的 key '${key}' 不在 mcpServers 中，自动使用唯一 key '${resolvedKey}'`);
+      } else {
+        logger.error(`${context} 使用的 key '${key}' 不在 mcpServers 中，可用 keys: ${JSON.stringify(serverKeys)}`);
+        throw new Error(`${context} failed: server key '${key}' not found in agentConfig.mcpServers`);
+      }
+    }
+    
+    return resolvedKey;
   }
 
   public async start(mcpServerName: string) {
@@ -92,15 +117,19 @@ export class CustomServer {
         logger.error('Failed to list resources after change notification');
       }
     });
+    // 解析实际的 server key（避免传入别名导致取值为 undefined）
+    this.selectedServerKey = this.resolveServerKey(mcpServerName, 'mcpServerName');
+
     // Connect the client
     let transport: Transport;
     if (this.protocol === 'mcp-streamble') {
       transport = this._transportContextFactory({
-        ...this.config.mcpServers[mcpServerName],
+        ...this.config.mcpServers[this.selectedServerKey!],
         sessionId: this.sessionId // StreamableHttpTransport 需要Client保存sessionId
       });
     } else {
-      transport = this._transportContextFactory(this.config.mcpServers[mcpServerName]);
+      logger.info(`stdio transport context, config: ${JSON.stringify(this.config)}`);
+      transport = this._transportContextFactory(this.config.mcpServers[this.selectedServerKey!]);
     }
     await this.client.connect(transport)
     // TODO: StreamableHttpTransport 未返回SessionId，没有赋值成功 看看transport由哪里初始化
@@ -181,8 +210,7 @@ export class CustomServer {
 
     const executeWithRetry = async (attempt: number): Promise<any> => {
       try {
-        const timeoutPromise = new Promise((_, reject) => 
-          +   setTimeout(() => reject(new Error('Request timeout')), 10000));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Request timeout')), 10000));
 
         const result = await Promise.race([timeoutPromise, this.client!.request({
           method: 'tools/call',
@@ -208,7 +236,9 @@ export class CustomServer {
         // Try to reconnect if needed
         if (!(await this.healthy())) {
           logger.info(`Reconnecting to server ${this.name} before retry`);
-          const transport = this._transportContextFactory(this.config.mcpServers[this.name]);
+          const key = this.selectedServerKey || this.name;
+          const resolvedKey = this.resolveServerKey(key, 'reconnect');
+          const transport = this._transportContextFactory(this.config.mcpServers[resolvedKey]);
           await this.client!.connect(transport);
         }
 
