@@ -59,6 +59,29 @@ export class CustomServer {
     // })
   }
 
+  /**
+   * 解析服务器键，处理别名和错误情况
+   * @param key 要解析的键名
+   * @param context 上下文信息，用于日志记录
+   * @returns 解析后的服务器键
+   */
+  private resolveServerKey(key: string, context: string = 'server'): string {
+    const serverKeys = this.config?.mcpServers ? Object.keys(this.config.mcpServers) : [];
+    let resolvedKey = key;
+    
+    if (!serverKeys.includes(resolvedKey)) {
+      if (serverKeys.length === 1) {
+        resolvedKey = serverKeys[0];
+        logger.warn(`${context} 使用的 key '${key}' 不在 mcpServers 中，自动使用唯一 key '${resolvedKey}'`);
+      } else {
+        logger.error(`${context} 使用的 key '${key}' 不在 mcpServers 中，可用 keys: ${JSON.stringify(serverKeys)}`);
+        throw new Error(`${context} failed: server key '${key}' not found in agentConfig.mcpServers`);
+      }
+    }
+    
+    return resolvedKey;
+  }
+
   public async start(mcpServerName: string) {
     let notificationCount = 0;
     // Create a new client
@@ -95,18 +118,7 @@ export class CustomServer {
       }
     });
     // 解析实际的 server key（避免传入别名导致取值为 undefined）
-    const serverKeys = this.config?.mcpServers ? Object.keys(this.config.mcpServers) : [];
-    let resolvedKey = mcpServerName;
-    if (!serverKeys.includes(resolvedKey)) {
-      if (serverKeys.length === 1) {
-        resolvedKey = serverKeys[0];
-        logger.warn(`mcpServerName '${mcpServerName}' 不在 mcpServers 中，自动使用唯一 key '${resolvedKey}'`);
-      } else {
-        logger.error(`mcpServerName '${mcpServerName}' 不在 mcpServers 中，可用 keys: ${JSON.stringify(serverKeys)}`);
-        throw new Error(`mcpServerName '${mcpServerName}' not found in agentConfig.mcpServers`);
-      }
-    }
-    this.selectedServerKey = resolvedKey;
+    this.selectedServerKey = this.resolveServerKey(mcpServerName, 'mcpServerName');
 
     // Connect the client
     let transport: Transport;
@@ -225,17 +237,7 @@ export class CustomServer {
         if (!(await this.healthy())) {
           logger.info(`Reconnecting to server ${this.name} before retry`);
           const key = this.selectedServerKey || this.name;
-          const serverKeys = this.config?.mcpServers ? Object.keys(this.config.mcpServers) : [];
-          let resolvedKey = key;
-          if (!serverKeys.includes(resolvedKey)) {
-            if (serverKeys.length === 1) {
-              resolvedKey = serverKeys[0];
-              logger.warn(`reconnect 使用的 key '${key}' 不在 mcpServers 中，自动使用唯一 key '${resolvedKey}'`);
-            } else {
-              logger.error(`reconnect 使用的 key '${key}' 不在 mcpServers 中，可用 keys: ${JSON.stringify(serverKeys)}`);
-              throw new Error(`reconnect failed: server key '${key}' not found in agentConfig.mcpServers`);
-            }
-          }
+          const resolvedKey = this.resolveServerKey(key, 'reconnect');
           const transport = this._transportContextFactory(this.config.mcpServers[resolvedKey]);
           await this.client!.connect(transport);
         }
