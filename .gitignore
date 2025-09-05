@@ -181,3 +181,5 @@ my_hnsw_*.*
 src/typescript/coverage
 src/typescript/test-results
 src/typescript/playwright-report
+
+package-lock.json
