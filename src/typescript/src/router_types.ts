@@ -124,12 +124,12 @@ export class CustomServer {
     let transport: Transport;
     if (this.protocol === 'mcp-streamble') {
       transport = this._transportContextFactory({
-        ...this.config.mcpServers[resolvedKey],
+        ...this.config.mcpServers[this.selectedServerKey!],
         sessionId: this.sessionId // StreamableHttpTransport 需要Client保存sessionId
       });
     } else {
       logger.info(`stdio transport context, config: ${JSON.stringify(this.config)}`);
-      transport = this._transportContextFactory(this.config.mcpServers[resolvedKey]);
+      transport = this._transportContextFactory(this.config.mcpServers[this.selectedServerKey!]);
     }
     await this.client.connect(transport)
     // TODO: StreamableHttpTransport 未返回SessionId，没有赋值成功 看看transport由哪里初始化
