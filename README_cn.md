@@ -1,6 +1,7 @@
 # nacos-mcp-router: 一个提供MCP Server推荐、分发、安装及代理功能的MCP Server.
 
 [![Model Context Protocol](https://img.shields.io/badge/Model%20Context%20Protocol-purple)](https://modelcontextprotocol.org)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/nacos-group/nacos-mcp-router)
 
 <p>
 <a href="./README.md">English</a> | <a href="./README_cn.md">简体中文</a> 
