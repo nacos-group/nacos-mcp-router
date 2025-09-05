@@ -120,7 +120,6 @@ export class SearchService {
       const providerName = provider.constructor.name;
       try {
         const results = await provider.search(params);
-        logger.info(`${providerName} returned ${results.length} results: ${JSON.stringify(results)}`);
         const typedResults = results.map(result => 
           ensureEnhancedServer({
             ...result,

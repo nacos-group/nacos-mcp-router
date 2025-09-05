@@ -3,7 +3,7 @@
     "nacos-server": {  
       "command": "node",  
       "args": [  
-        "/Users/terry/work/mcp-router/nacos-mcp-router/src/typescript/dist/stdio.js"  
+        "./dist/stdio.js"  
       ],  
       "env": {  
         "NACOS_SERVER_ADDR": "localhost:8848",  
