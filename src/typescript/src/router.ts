@@ -196,7 +196,7 @@ ${content}
       // console.log(`defaultEF: ${defaultEF}`);
 
       const { env } = await import('@xenova/transformers');
-      const mirrorHost = process.env.HF_MIRROR_HOST || "https://hf-mirror.com";
+      const mirrorHost = process.env.HF_MIRROR_HOST || 'https://hf-mirror.com';
       (env as any).remoteHost = mirrorHost;
       if (!this.vectorDB) {
         this.vectorDB = new VectorDB();
