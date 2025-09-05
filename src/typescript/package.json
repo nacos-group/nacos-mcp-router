@@ -1,6 +1,6 @@
 {
   "name": "nacos-mcp-router",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Nacos MCP Router TypeScript implementation",
   "main": "dist/stdio.js",
   "bin": {
