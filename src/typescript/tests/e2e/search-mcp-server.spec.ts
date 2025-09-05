@@ -92,7 +92,9 @@ test.describe('MCP Inspector - Search MCP Server 功能测试', () => {
             console.log(`📋 工具调用结果: ${resultText?.substring(0, 200)}...`);
             
             // 验证结果包含期望的内容
-            if (resultText && (resultText.includes('exact-server-name') || resultText.includes('获取') || resultText.includes('步骤'))) {
+            const expectedKeywords = ['exact-server-name', '获取', '步骤'];
+            const isResultValid = expectedKeywords.some(keyword => resultText.includes(keyword));
+            if (resultText && isResultValid) {
               console.log('✅ 工具调用成功，返回了期望的结果');
             } else {
               console.log('⚠️ 工具调用结果格式可能不符合预期');
