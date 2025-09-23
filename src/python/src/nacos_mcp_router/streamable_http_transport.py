@@ -24,6 +24,7 @@ class McpStreamableHttpTransport(McpTransport):
             headers=self.clean_headers(client_headers)
         ) as (read, write, _):
             async with ClientSession(read, write) as session:
+                await session.initialize()
                 return await session.call_tool(name=name, arguments=args)
     async def handle_list_tools(self, client_headers: dict[str, str]) -> ListToolsResult:
         async with streamablehttp_client(
@@ -31,6 +32,7 @@ class McpStreamableHttpTransport(McpTransport):
             headers=self.clean_headers(client_headers)
         ) as (read, write, _):
             async with ClientSession(read, write) as session:
+                await session.initialize()
                 return await session.list_tools()
             
     async def handle_initialize(self, client_headers: dict[str, str]) -> InitializeResult:
