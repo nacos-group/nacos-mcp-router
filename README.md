@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/nacos-group-nacos-mcp-router-badge.png)](https://mseep.ai/app/nacos-group-nacos-mcp-router)
+
 
 # nacos-mcp-router: A MCP server that provides  functionalities such as search, installation, proxy, and more.
 [![Model Context Protocol](https://img.shields.io/badge/Model%20Context%20Protocol-purple)](https://modelcontextprotocol.org)
