@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nacos-headless
+spec:
+  ports:
+    - port: 8848
+      name: client
+    - port: 9848
+      name: rpc
+    - port: 8080
+      name: web
+  clusterIP: None
+  selector:
+    app: nacos

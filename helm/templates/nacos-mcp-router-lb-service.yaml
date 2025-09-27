@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nacos-mcp-router-lb
+  annotations:
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: internet
+    service.beta.kubernetes.io/alibaba-cloud-loadbalancer-spec: slb.s2.small
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 8000
+      targetPort: 8000
+      name: mcp-router
+  selector:
+    app: nacos-mcp-router 

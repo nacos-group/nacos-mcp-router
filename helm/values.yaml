@@ -1,0 +1,49 @@
+nacos:
+  image: nacos/nacos-server
+  tag: "latest"
+  replicaCount: 3
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+  env:
+    MODE: "cluster"
+    SPRING_DATASOURCE_PLATFORM: "mysql"
+    MYSQL_SERVICE_HOST: "mysql"
+    MYSQL_SERVICE_PORT: "3306"
+    MYSQL_SERVICE_DB_NAME: "nacos_devtest"
+    MYSQL_SERVICE_USER: "nacos"
+    MYSQL_SERVICE_PASSWORD: ""
+    NACOS_AUTH_ENABLE: "false"
+    NACOS_AUTH_TOKEN: ""
+    NACOS_AUTH_IDENTITY_KEY: ""
+    NACOS_AUTH_IDENTITY_VALUE: ""
+nacosMcpRouter:
+  image: nacos/nacos-mcp-router
+  tag: "latest"
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  env:
+    TRANSPORT_TYPE: "streamable_http"
+    NACOS_ADDR: "nacos:8848"
+    NACOS_USERNAME: "nacos"
+    NACOS_PASSWORD: ""
+mysql:
+  image: mysql
+  tag: "5.7"
+  storage: 1Gi
+  env:
+    MYSQL_ROOT_PASSWORD: "root"
+    MYSQL_DATABASE: "nacos_devtest"
+    MYSQL_USER: "nacos"
+    MYSQL_PASSWORD: ""

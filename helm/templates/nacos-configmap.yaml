@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nacos-env
+data:
+  MODE: {{ .Values.nacos.env.MODE | quote }}
+  SPRING_DATASOURCE_PLATFORM: {{ .Values.nacos.env.SPRING_DATASOURCE_PLATFORM | quote }}
+  MYSQL_SERVICE_HOST: {{ .Values.nacos.env.MYSQL_SERVICE_HOST | quote }}
+  MYSQL_SERVICE_PORT: {{ .Values.nacos.env.MYSQL_SERVICE_PORT | quote }}
+  MYSQL_SERVICE_DB_NAME: {{ .Values.nacos.env.MYSQL_SERVICE_DB_NAME | quote }}
+  MYSQL_SERVICE_USER: {{ .Values.nacos.env.MYSQL_SERVICE_USER | quote }}
+  MYSQL_SERVICE_PASSWORD: {{ .Values.nacos.env.MYSQL_SERVICE_PASSWORD | quote }}
+  NACOS_AUTH_ENABLE: {{ .Values.nacos.env.NACOS_AUTH_ENABLE | quote }}
+  NACOS_AUTH_TOKEN: {{ .Values.nacos.env.NACOS_AUTH_TOKEN | quote }}
+  NACOS_AUTH_IDENTITY_KEY: {{ .Values.nacos.env.NACOS_AUTH_IDENTITY_KEY | quote }}
+  NACOS_AUTH_IDENTITY_VALUE: {{ .Values.nacos.env.NACOS_AUTH_IDENTITY_VALUE | quote }}
+  NACOS_SERVERS: |-
+{{- range $i, $e := until (int $.Values.nacos.replicaCount) }}
+    nacos-{{ $i }}.nacos-headless.{{ $.Release.Namespace }}.svc.cluster.local:8848
+{{- end }}

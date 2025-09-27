@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nacos-initdb
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: initdb
+          image: mysql:5.7
+          command:
+            - sh
+            - -c
+            - |
+              for i in $(seq 1 30); do
+                mysqladmin ping -h {{ .Values.nacos.env.MYSQL_SERVICE_HOST }} -P {{ .Values.nacos.env.MYSQL_SERVICE_PORT }} -u$MYSQL_USER -p$MYSQL_PASSWORD && break
+                echo waiting for mysql...
+                sleep 2
+              done
+              mysql -h {{ .Values.nacos.env.MYSQL_SERVICE_HOST }} -P {{ .Values.nacos.env.MYSQL_SERVICE_PORT }} -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE < /docker-entrypoint-initdb.d/mysql-schema.sql
+          envFrom:
+            - configMapRef:
+                name: mysql-env
+          volumeMounts:
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: initdb
+          configMap:
+            name: mysql-initdb 

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-env
+data:
+  MYSQL_ROOT_PASSWORD: {{ .Values.mysql.env.MYSQL_ROOT_PASSWORD | quote }}
+  MYSQL_DATABASE: {{ .Values.mysql.env.MYSQL_DATABASE | quote }}
+  MYSQL_USER: {{ .Values.mysql.env.MYSQL_USER | quote }}
+  MYSQL_PASSWORD: {{ .Values.mysql.env.MYSQL_PASSWORD | quote }}

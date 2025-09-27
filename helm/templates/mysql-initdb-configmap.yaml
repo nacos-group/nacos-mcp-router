@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb
+  labels:
+    app: mysql
+    chart: nacos-cluster
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  mysql-schema.sql: |-
+{{ .Files.Get "files/mysql-schema.sql" | indent 4 }} 
