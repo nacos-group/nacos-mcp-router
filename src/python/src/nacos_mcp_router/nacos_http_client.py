@@ -146,7 +146,7 @@ class NacosHttpClient:
             if not m["enabled"]:
                 return None
             name = m["name"]
-            if (m["protocol"] == "mcp-sse" or m["protocol"] == "stdio") or m["protocol"] == "mcp-streamable" :
+            if (m["frontProtocol"] == "mcp-sse" or m["frontProtocol"] == "stdio") or m["frontProtocol"] == "mcp-streamable" :
                 id = ""
                 if "id" in m and m["id"] is not None:
                     id = m["id"]
