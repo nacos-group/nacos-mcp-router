@@ -48,7 +48,7 @@ export class CustomServer {
     this._transportContextFactory = _stdioTransportContext;
     if (protocol === 'mcp-sse') {
       this._transportContextFactory = _sseTransportContext;
-    } else if (protocol === 'mcp-streamble') {
+    } else if (protocol === 'mcp-streamable') {
       this._transportContextFactory = _streamableHttpTransportContext;
     }
 
@@ -122,7 +122,7 @@ export class CustomServer {
 
     // Connect the client
     let transport: Transport;
-    if (this.protocol === 'mcp-streamble') {
+    if (this.protocol === 'mcp-streamable') {
       transport = this._transportContextFactory({
         ...this.config.mcpServers[this.selectedServerKey!],
         sessionId: this.sessionId // StreamableHttpTransport 需要Client保存sessionId
