@@ -26,7 +26,7 @@ class McpSseTransport(McpTransport):
                 await session.initialize()
                 return await session.call_tool(name=name, arguments=args)
     async def handle_list_tools(self, client_headers: dict[str, str]) -> ListToolsResult:
-        NacosMcpRouteLogger.get_logger().info(f"handle_list_tools, url: {self.url}, headers: {client_headers}")
+        NacosMcpRouteLogger.get_logger().info(f"handle_list_tools, url: {self.url}")
 
         async with sse_client(
             url=self.url,
