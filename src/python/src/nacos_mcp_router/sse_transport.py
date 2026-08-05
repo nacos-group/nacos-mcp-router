@@ -20,7 +20,7 @@ class McpSseTransport(McpTransport):
         # 使用特定headers连接目标服务器
         async with sse_client(
             url=self.url,
-            headers=self.clean_headers(client_headers)
+            headers=self.merged_headers(client_headers)
         ) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
@@ -30,7 +30,7 @@ class McpSseTransport(McpTransport):
 
         async with sse_client(
             url=self.url,
-            headers=self.clean_headers(client_headers)
+            headers=self.merged_headers(client_headers)
         ) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
@@ -38,7 +38,7 @@ class McpSseTransport(McpTransport):
     async def handle_initialize(self, client_headers: dict[str, str]) -> InitializeResult:
         async with sse_client(
             url=self.url,
-            headers=self.clean_headers(client_headers)
+            headers=self.merged_headers(client_headers)
         ) as (read, write):
             async with ClientSession(read, write) as session:
                 return await session.initialize()
