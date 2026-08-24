@@ -27,6 +27,14 @@ CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded; charset=utf8"
 _SCHEMA_HTTP = "http"
 _SCHEMA = os.getenv("NACOS_SERVER_SCHEMA", _SCHEMA_HTTP)
 
+
+def _normalize_local_server_config(name: str, config: dict) -> dict:
+    if "mcpServers" in config:
+        return config
+
+    return {"mcpServers": {name: config}}
+
+
 class NacosHttpClient:
     def __init__(self, params: dict[str,str]) -> None:
         nacosAddr = params["nacosAddr"]
@@ -112,6 +120,9 @@ class NacosHttpClient:
         mcp_server.mcp_config_detail = config
         protocol = config.protocol
         if protocol == "stdio" or len(config.backend_endpoints) == 0:
+            mcp_server.agentConfig = _normalize_local_server_config(
+                config.name, config.local_server_config
+            )
             return mcp_server
 
         _parse_mcp_detail(mcp_server, config, name)
@@ -366,4 +377,3 @@ def _parse_mcp_detail(mcp_server, config, searching_name):
     }
 
     mcp_servers[searching_name] = dct
-
